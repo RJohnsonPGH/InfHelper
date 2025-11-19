@@ -66,7 +66,7 @@ public static class TokenTypeExtensions
 		return type switch
 		{
 			TokenType.Letter => !char.IsControl(c) && !char.IsWhiteSpace(c),
-			TokenType.WhiteSpace => char.IsWhiteSpace(c), // This is less restrictive than the predefined set (includes newline characters). Why?
+			//TokenType.WhiteSpace => char.IsWhiteSpace(c), // This is less restrictive than the predefined set (includes newline characters). Why?
 			_ => type.GetSymbols().Contains(c),
 		};
 	}
