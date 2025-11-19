@@ -8,55 +8,55 @@ namespace InfHelper.Parsers;
 
 public class BasicTokenParser : ITokenParser
 {
-	public static ISet<TokenBase> AllAvailableTokens => new HashSet<TokenBase>
+	public static ISet<TokenType> AllAvailableTokens => new HashSet<TokenType>
 	{
-		new CategoryClosingToken(),
-		new CategoryOpeningToken(),
-		new EqualityToken(),
-		new InlineCommentToken(),
-		new NewLineToken(),
-		new SpaceToken(),
-		new WhiteSpaceToken(),
-		new LineConcatenatorToken(),
-		new LetterToken(),
-		new ValueSeparatorToken(),
-		new ValueMarkerToken()
+		TokenType.CategoryClosing,
+		TokenType.CategoryOpening,
+		TokenType.Equality,
+		TokenType.InlineComment,
+		TokenType.NewLine,
+		TokenType.Space,
+		TokenType.WhiteSpace,
+		TokenType.LineConcatenator,
+		TokenType.Letter,
+		TokenType.ValueSeparator,
+		TokenType.ValueMarker
 	};
 
-	private ISet<TokenBase> allTokens;
+	private ISet<TokenType> allTokens;
 
-    public ISet<TokenBase> AllTokens
+    public ISet<TokenType> AllTokens
     {
         get => allTokens;
         private set
         {
             //Sort by priority - some tokens share symbols e.g. line concentrator and letter
-            allTokens = new HashSet<TokenBase>(value.OrderByDescending(x => (int)x.Type));
+            allTokens = new HashSet<TokenType>(value.OrderByDescending(x => (int)x));
         }
     }
 
     public uint Length { get; private set; }
     public uint Position { get; private set; }
 
-    public ISet<TokenBase> AllowedTokens { get; set; }
-    public ISet<TokenBase> IgnoredTokens { get; set; }
+    public ISet<TokenType> AllowedTokens { get; set; }
+    public ISet<TokenType> IgnoredTokens { get; set; }
 
-    public event EventHandler<TokenBase> InvalidTokenFound = default!;
-    public event EventHandler<TokenBase> ValidTokenFound = default!;
+    public event EventHandler<TokenEventArgs> InvalidTokenFound = default!;
+    public event EventHandler<TokenEventArgs> ValidTokenFound = default!;
 
-    public BasicTokenParser() : this(new HashSet<TokenBase>(), new HashSet<TokenBase>())
+    public BasicTokenParser() : this(new HashSet<TokenType>(), new HashSet<TokenType>())
     {
         AllTokens = AllAvailableTokens;
     }
 
-    public BasicTokenParser(ISet<TokenBase> allowedTokens, ISet<TokenBase> ignoredTokens)
+    public BasicTokenParser(ISet<TokenType> allowedTokens, ISet<TokenType> ignoredTokens)
     {
         allTokens = AllAvailableTokens;
 		AllowedTokens = allowedTokens;
         IgnoredTokens = ignoredTokens;
     }
 
-    public BasicTokenParser(ISet<TokenBase> allTokens, ISet<TokenBase> allowedTokens, ISet<TokenBase> ignoredTokens)
+    public BasicTokenParser(ISet<TokenType> allTokens, ISet<TokenType> allowedTokens, ISet<TokenType> ignoredTokens)
     {
         this.allTokens = allTokens;
         AllowedTokens = allowedTokens;
@@ -89,33 +89,40 @@ public class BasicTokenParser : ITokenParser
             foreach (var token in AllTokens)
             {
 
-                if (!token.IsToken(c)) continue;
+                if (!token.IsToken(c))
+                {
+                    continue;
+                }
 
                 //tokenBase found
-                token.Symbol = c;
                 found = true;
 
                 //ignored tokenBase detected
-                if (IgnoredTokens != null && IgnoredTokens.Any(x => x.Type == token.Type))
+                if (IgnoredTokens != null && IgnoredTokens.Any(x => x == token))
+                {
                     continue;
+                }
 
                 //not allowed tokenBase detected
-                if (AllowedTokens == null || AllowedTokens.All(x => x.Type != token.Type))
+                if (AllowedTokens == null || AllowedTokens.All(x => x != token))
                 {
-                    InvalidTokenFound?.Invoke(this, token);
+                    InvalidTokenFound?.Invoke(this, new(token, c));
                     continue;
                 }
 
                 //allowed tokenBase detected
-                ValidTokenFound?.Invoke(this, token);
+                ValidTokenFound?.Invoke(this, new(token, c));
                 break;
             }
 
             //tokenBase not recognized
             if (!found)
-                throw new NoneTokenRecognizedException($"None tokenBase recognized in row:{row} col:{col}" + Environment.NewLine + "Examined symbol: " + c
-                    + "\nSymbol number: " + Convert.ToInt16(c)
-                    + "\nExamined line: " + line);
+            {
+                throw new NoneTokenRecognizedException($"None tokenBase recognized in row:{row} col:{col}{Environment.NewLine}" +
+                    $"Examined symbol: {c}{Environment.NewLine}" +
+                    $"Symbol number: {Convert.ToInt16(c)}{Environment.NewLine}" +
+                    $"Examined line: {line}");
+            }
         }
     }
 }

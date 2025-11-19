@@ -130,4 +130,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\InfHelper\InfHelper.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Models\" />
+  </ItemGroup>
 </Project>

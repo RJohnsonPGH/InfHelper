@@ -1,0 +1,115 @@
+using InfHelper.Exceptions;
+using InfHelper.Models.Tokens;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace InfHelper.Parsers;
+
+public class BasicTokenParser : ITokenParser
+{
+	public static ISet<TokenType> AllAvailableTokens => new HashSet<TokenType>
+	{
+        TokenType.CategoryClosing,
+        TokenType.CategoryOpening,
+        TokenType.Equality,
+        TokenType.InlineComment,
+        TokenType.NewLine,
+        TokenType.Space,
+        TokenType.WhiteSpace,
+        TokenType.LineConcatenator,
+        TokenType.Letter,
+        TokenType.ValueSeparator,
+        TokenType.ValueMarker
+	};
+
+	private ISet<TokenType> allTokens;
+
+    public ISet<TokenType> AllTokens
+    {
+        get => allTokens;
+        private set
+        {
+            //Sort by priority - some tokens share symbols e.g. line concentrator and letter
+            allTokens = new HashSet<TokenType>(value.OrderByDescending(x => (int)x));
+        }
+    }
+
+    public uint Length { get; private set; }
+    public uint Position { get; private set; }
+
+    // All tokens allowed unless specifically modified
+    public ISet<TokenType> AllowedTokens { get; set; } = new HashSet<TokenType>();
+	public ISet<TokenType> IgnoredTokens { get; set; } = new HashSet<TokenType>();
+
+	public event EventHandler<TokenEventArgs> InvalidTokenFound = default!;
+    public event EventHandler<TokenEventArgs> ValidTokenFound = default!;
+
+    public BasicTokenParser() : this(new HashSet<TokenType>(), new HashSet<TokenType>())
+    {
+        AllTokens = AllAvailableTokens;
+    }
+
+    public BasicTokenParser(ISet<TokenType> allowedTokens, ISet<TokenType> ignoredTokens)
+    {
+        allTokens = AllAvailableTokens;
+		AllowedTokens = allowedTokens;
+        IgnoredTokens = ignoredTokens;
+    }
+
+    public BasicTokenParser(ISet<TokenType> allTokens, ISet<TokenType> allowedTokens, ISet<TokenType> ignoredTokens)
+    {
+        this.allTokens = allTokens;
+        AllowedTokens = allowedTokens;
+        IgnoredTokens = ignoredTokens;
+    }
+
+    /// <summary>
+    /// Parses the specified input string and processes recognized tokens, raising events for valid or invalid tokens as
+    /// appropriate.
+    /// </summary>
+    /// <remarks>During parsing, events may be raised for valid or invalid tokens depending on the
+    /// configuration of allowed and ignored tokens. The method updates internal state such as position and length to
+    /// reflect the progress of parsing.</remarks>
+    /// <param name="data">The input string to be parsed. Cannot be null.</param>
+    /// <exception cref="NoneTokenRecognizedException">Thrown when a character in the input string does not match any known token type.</exception>
+    public virtual void Parse(string data)
+    {
+        int row = 0, col = 0;
+        string line = "";
+
+        Length = (uint)data.Length;
+        Position = 0;
+
+        foreach (var character in data)
+        {
+            Position++;
+
+            if (character == '\n')
+            {
+                row++;
+                col = 0;
+                line = "";
+            }
+            col++;
+            line += character;
+
+			// Get all tokens that match the current character
+			var tokenMatches = AllTokens
+                .Except(IgnoredTokens)
+                .Intersect(AllowedTokens)
+                .Where(x => x.IsToken(character));
+
+            if (!tokenMatches.Any())
+            {
+				throw new NoneTokenRecognizedException($"None tokenBase recognized in row:{row} col:{col}{Environment.NewLine}" +
+                    $"Examined symbol: {character}{Environment.NewLine}" +
+					$"Symbol number: {Convert.ToInt16(character)}{Environment.NewLine}" +
+                    $"Examined line: {line}");
+			}
+
+            var match = tokenMatches.First();
+			ValidTokenFound?.Invoke(this, new(match, character));
+        }
+    }
+}

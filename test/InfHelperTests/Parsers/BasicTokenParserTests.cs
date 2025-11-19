@@ -12,12 +12,12 @@ public class BasicTokenParserTests
     public void TokenOrderTest()
     {
         string formula = "[TEST]";
-        var parser = new BasicTokenParser(new HashSet<TokenBase>
+        var parser = new BasicTokenParser(allowedTokens: new HashSet<TokenType>
         {
-            new CategoryOpeningToken(),
-            new LetterToken(),
-            new CategoryClosingToken(),
-        }, new HashSet<TokenBase>());
+            TokenType.CategoryOpening,
+            TokenType.Letter,
+            TokenType.CategoryClosing
+        }, ignoredTokens: new HashSet<TokenType>());
         string result = "";
         parser.ValidTokenFound += (sender, token) => result += token.Symbol;
         parser.Parse(formula);
@@ -30,15 +30,15 @@ public class BasicTokenParserTests
     {
         string expression = "[TEST]";
         string formula = "  \n   " + expression + "   \n   ";
-        var parser = new BasicTokenParser(new HashSet<TokenBase>
+        var parser = new BasicTokenParser(allowedTokens: new HashSet<TokenType>
         {
-            new CategoryOpeningToken(),
-            new LetterToken(),
-            new CategoryClosingToken(),
-        }, new HashSet<TokenBase>
+            TokenType.CategoryOpening,
+            TokenType.Letter,
+            TokenType.CategoryClosing
+        }, ignoredTokens: new HashSet<TokenType>
         {
-            new WhiteSpaceToken(),
-            new NewLineToken()
+            TokenType.WhiteSpace,
+            TokenType.NewLine
         });
 
         string result = "";
@@ -52,15 +52,15 @@ public class BasicTokenParserTests
     public void AllowedTokensTest()
     {
         string formula = "[TE;ST] \\";
-        var parser = new BasicTokenParser(new HashSet<TokenBase>
+        var parser = new BasicTokenParser(allowedTokens: new HashSet<TokenType>
         {
-            new CategoryOpeningToken(),
-            new LetterToken(),
-            new CategoryClosingToken(),
-        }, new HashSet<TokenBase>
+            TokenType.CategoryOpening,
+            TokenType.Letter,
+            TokenType.CategoryClosing
+        }, ignoredTokens: new HashSet<TokenType>
         {
-            new WhiteSpaceToken(),
-            new NewLineToken()
+            TokenType.WhiteSpace,
+            TokenType.NewLine
         });
 
         string result = "";
@@ -79,69 +79,69 @@ public class BasicTokenParserTests
     public void TokensWithSameSymbol()
     {
         string formula = "Test = test\\\ntest";
-        var parser = new BasicTokenParser(new HashSet<TokenBase>
+        var parser = new BasicTokenParser(allowedTokens: new HashSet<TokenType>
         {
-            new LetterToken(),
-            new EqualityToken(),
-            new LineConcatenatorToken()
-        }, new HashSet<TokenBase>
+            TokenType.Letter,
+            TokenType.Equality,
+            TokenType.LineConcatenator
+        }, ignoredTokens: new HashSet<TokenType>
         {
-            new WhiteSpaceToken(),
-            new NewLineToken()
+            TokenType.WhiteSpace,
+            TokenType.NewLine
         });
 
         var tokens = new List<TokenType>();
-        parser.ValidTokenFound += (sender, token) => tokens.Add(token.Type);
+        parser.ValidTokenFound += (sender, tokenEventArgs) => tokens.Add(tokenEventArgs.TokenType);
         parser.Parse(formula);
 
-        Assert.IsTrue(tokens.Contains(TokenType.EQ) && tokens.Contains(TokenType.Letter) && tokens.Contains(TokenType.LineConcatenator));
+        Assert.IsTrue(tokens.Contains(TokenType.Equality) && tokens.Contains(TokenType.Letter) && tokens.Contains(TokenType.LineConcatenator));
     }
 
     [TestMethod()]
     public void TestOfAdaptability()
     {
         string formula = "Test = test\\\ntest";
-        var parser = new BasicTokenParser(new HashSet<TokenBase>
+        var parser = new BasicTokenParser(allowedTokens: new HashSet<TokenType>
         {
-            new LetterToken(),
-            new EqualityToken(),
-        }, new HashSet<TokenBase>
+            TokenType.Letter,
+            TokenType.Equality
+        }, ignoredTokens: new HashSet<TokenType>
         {
-            new WhiteSpaceToken(),
+            TokenType.WhiteSpace
         });
 
         string id = "";
         string key = "";
 
-        void keyParsing(object sender, TokenBase token)
+        void keyParsing(object sender, TokenEventArgs eventArgs)
         {
-            switch (token.Type)
+            switch (eventArgs.TokenType)
             {
                 case TokenType.Letter:
-                    id += token.Symbol;
+                    id += eventArgs.Symbol;
                     break;
-                case TokenType.EQ:
+                case TokenType.Equality:
                     parser.ValidTokenFound -= keyParsing;
-                    parser.AllowedTokens = new HashSet<TokenBase>()
+                    parser.AllowedTokens = new HashSet<TokenType>()
                     {
-                        new LetterToken(),
-                        new NewLineToken(),
-                        new LineConcatenatorToken(),
+                        TokenType.Letter,
+                        TokenType.NewLine,
+                        TokenType.LineConcatenator
                     };
                     parser.ValidTokenFound += valueParsing;
                     break;
             }
         }
 
-        void valueParsing(object sender, TokenBase token)
+        void valueParsing(object sender, TokenEventArgs eventArgs)
         {
-            switch (token.Type)
+            switch (eventArgs.TokenType)
             {
                 case TokenType.Letter:
-                    key += token.Symbol;
+                    key += eventArgs.Symbol;
                     break;
                 case TokenType.LineConcatenator:
-                    parser.IgnoredTokens.Add(new NewLineToken());                  
+                    parser.IgnoredTokens.Add(TokenType.NewLine);                  
                     break;
             }
         }

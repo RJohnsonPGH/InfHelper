@@ -8,11 +8,11 @@ public interface ITokenParser
 {
     uint Length { get; }
     uint Position { get; }
-    ISet<TokenBase> AllowedTokens { get; set; }
-    ISet<TokenBase> AllTokens { get; }
-    ISet<TokenBase> IgnoredTokens { get; set; }
-    event EventHandler<TokenBase> InvalidTokenFound;
-    event EventHandler<TokenBase> ValidTokenFound;
+    ISet<TokenType> AllowedTokens { get; set; }
+    ISet<TokenType> AllTokens { get; }
+    ISet<TokenType> IgnoredTokens { get; set; }
+    event EventHandler<TokenEventArgs> InvalidTokenFound;
+    event EventHandler<TokenEventArgs> ValidTokenFound;
 
     void Parse(string formula);
 }

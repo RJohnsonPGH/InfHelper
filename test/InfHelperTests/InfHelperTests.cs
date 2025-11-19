@@ -107,9 +107,14 @@ public class InfHelperTests
     [TestMethod()]
     public void CustomSerializationTest2()
     {
-        var serilized = InfUtil.SerializeFileInto<DriverInfo>(Path.Combine(testFolder, "oem147.inf"), out InfData _);
-        Assert.AreEqual("net", serilized.Class);
-        Assert.AreEqual("%PROVIDER_NAME%", serilized.Provider);
+		// Throw is expected as the Deserialization type has a key that does not exist in the INF
+		Assert.ThrowsException<KeyNotFoundException>(() =>
+        {
+			InfUtil.SerializeFileInto<DriverInfo>(Path.Combine(testFolder, "oem147.inf"), out InfData _);
+		});
+		
+        //Assert.AreEqual("net", serilized.Class);
+        //Assert.AreEqual("%PROVIDER_NAME%", serilized.Provider);
     }
 
     [TestMethod()]

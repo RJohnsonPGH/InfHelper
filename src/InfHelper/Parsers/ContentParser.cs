@@ -22,10 +22,7 @@ public class ContentParser
 	/// </summary>
 	public event EventHandler<Category>? CategoryDiscovered;
 
-	public ContentParser() : this(new BasicTokenParser())
-    {
-
-    }
+	public ContentParser() : this(new BasicTokenParser()) { }
 
     public ContentParser(ITokenParser parser)
     {
@@ -51,16 +48,16 @@ public class ContentParser
         ClearAllMyCallbacks();
         parser.ValidTokenFound += ValidTokenFoundDuringMainParsing;
 
-        parser.AllowedTokens = new HashSet<TokenBase>
+        parser.AllowedTokens = new HashSet<TokenType>
         {
-            new InlineCommentToken(),
-            new CategoryOpeningToken(),
+            TokenType.InlineComment,
+            TokenType.CategoryOpening
         };
 
-        parser.IgnoredTokens = new HashSet<TokenBase>
+        parser.IgnoredTokens = new HashSet<TokenType>
         {
-            new WhiteSpaceToken(),
-            new NewLineToken()
+            TokenType.WhiteSpace,
+            TokenType.NewLine
         };
     }
 
@@ -74,12 +71,12 @@ public class ContentParser
         ClearAllMyCallbacks();
         parser.ValidTokenFound += ValidTokenFoundDuringCategoryParsing;
         parser.IgnoredTokens?.Clear();
-        parser.AllowedTokens = new HashSet<TokenBase>
+        parser.AllowedTokens = new HashSet<TokenType>
         {
-            new SpaceToken(),
-            new CategoryClosingToken(),
-            new LetterToken(),
-            new LineConcatenatorToken()
+            TokenType.Space,
+            TokenType.CategoryClosing,
+            TokenType.Letter,
+            TokenType.LineConcatenator
         };
     }
 
@@ -93,22 +90,22 @@ public class ContentParser
         ClearAllMyCallbacks();
         parser.ValidTokenFound += ValidTokenFoundDuringKeyIdParsing;
 
-        parser.AllowedTokens = new HashSet<TokenBase>
+        parser.AllowedTokens = new HashSet<TokenType>
         {
-            new InlineCommentToken(),
-            new LetterToken(),
-            new EqualityToken(),
-            new SpaceToken(),
-            new WhiteSpaceToken(),
-            new CategoryOpeningToken(),
-            new NewLineToken(),
-            new ValueSeparatorToken(),
-            new ValueMarkerToken(),
+            TokenType.InlineComment,
+            TokenType.Letter,
+            TokenType.Equality,
+			TokenType.Space,
+            TokenType.WhiteSpace,
+			TokenType.CategoryOpening,
+            TokenType.NewLine,
+            TokenType.ValueSeparator,
+            TokenType.ValueMarker
         };
 
-        parser.IgnoredTokens = new HashSet<TokenBase>
+        parser.IgnoredTokens = new HashSet<TokenType>
         {
-            new LineConcatenatorToken(),
+            TokenType.LineConcatenator
         };
     }
 
@@ -121,21 +118,21 @@ public class ContentParser
         ClearAllMyCallbacks();
         parser.ValidTokenFound += ValidTokenFoundDuringKeyValueParsing;
 
-        parser.AllowedTokens = new HashSet<TokenBase>
+        parser.AllowedTokens = new HashSet<TokenType>
         {
-            new ValueSeparatorToken(),
-            new LetterToken(),
-            new NewLineToken(),
-            new SpaceToken(),
-            new WhiteSpaceToken(),
-            new InlineCommentToken(),
-            new ValueMarkerToken()
+            TokenType.ValueSeparator,
+            TokenType.Letter,
+            TokenType.NewLine,
+            TokenType.Space,
+            TokenType.WhiteSpace,
+            TokenType.InlineComment,
+            TokenType.ValueMarker
         };
 
-        parser.IgnoredTokens = new HashSet<TokenBase>()
+        parser.IgnoredTokens = new HashSet<TokenType>()
         {
-            new LineConcatenatorToken(),
-            new EqualityToken()
+            TokenType.LineConcatenator,
+            TokenType.Equality
         };
     }
 
@@ -145,23 +142,23 @@ public class ContentParser
         ClearAllMyCallbacks();
         parser.ValidTokenFound += ValidTokenFoundDuringPureValueParsing;
 
-        parser.AllowedTokens = new HashSet<TokenBase>
+        parser.AllowedTokens = new HashSet<TokenType>
         {
-            new LetterToken(),
-            new ValueMarkerToken(),
-            new SpaceToken(),
-            new WhiteSpaceToken(),
-            new ValueSeparatorToken(),
-            new NewLineToken()
+            TokenType.Letter,
+            TokenType.ValueMarker,
+            TokenType.Space,
+            TokenType.WhiteSpace,
+            TokenType.ValueSeparator,
+            TokenType.NewLine
         };
 
-        parser.IgnoredTokens = new HashSet<TokenBase>()
+        parser.IgnoredTokens = new HashSet<TokenType>()
         {
-            new InlineCommentToken(),
-            new LineConcatenatorToken(),
-            new EqualityToken(),
-            new CategoryOpeningToken(),
-            new CategoryClosingToken()
+            TokenType.InlineComment,
+            TokenType.LineConcatenator,
+            TokenType.Equality,
+            TokenType.CategoryOpening,
+            TokenType.CategoryClosing
         };
     }
 
@@ -175,36 +172,36 @@ public class ContentParser
         ClearAllMyCallbacks();
         parser.ValidTokenFound += ValidTokenFoundDuringCommentParsing;
 
-        parser.AllowedTokens = new HashSet<TokenBase>
+        parser.AllowedTokens = new HashSet<TokenType>
         {
-            new NewLineToken(),
+            TokenType.NewLine
         };
 
-        parser.IgnoredTokens = new HashSet<TokenBase>()
+        parser.IgnoredTokens = new HashSet<TokenType>()
         {
-            new LetterToken(),
-            new SpaceToken(),
-            new WhiteSpaceToken(),
-            new ValueMarkerToken(),
-            new ValueSeparatorToken(),
-            new LineConcatenatorToken(),
-            new EqualityToken(),
-            new InlineCommentToken(),
-            new CategoryOpeningToken(),
-            new CategoryClosingToken(),
+            TokenType.Letter,
+            TokenType.Space,
+            TokenType.WhiteSpace,
+            TokenType.ValueMarker,
+			TokenType.ValueSeparator,
+			TokenType.LineConcatenator,
+            TokenType.Equality,
+            TokenType.InlineComment,
+            TokenType.CategoryOpening,
+            TokenType.CategoryClosing
         };
     }
 
     // Parsing value inside ""
-    private void ValidTokenFoundDuringPureValueParsing(object? sender, TokenBase tokenBase)
+    private void ValidTokenFoundDuringPureValueParsing(object? _, TokenEventArgs eventArgs)
     {
-        switch (tokenBase.Type)
+        switch (eventArgs.TokenType)
         {
             case TokenType.Letter:
             case TokenType.ValueSeparator:
             case TokenType.WhiteSpace:
             case TokenType.Space:
-                keyTmpValue += tokenBase.Symbol;
+                keyTmpValue += eventArgs.Symbol;
                 break;
             case TokenType.ValueMarker:
                 if (!string.IsNullOrEmpty(currentKey?.Id))
@@ -223,14 +220,14 @@ public class ContentParser
                 InitKeyIdParsing();
                 break;
             default:
-                throw new InvalidTokenException("Invalid tokenBase found during comment parsing: " + tokenBase.Symbol);
+                throw new InvalidTokenException("Invalid tokenBase found during comment parsing: " + eventArgs.Symbol);
         }
     }
 
     //Parsing inline comment
-    private void ValidTokenFoundDuringCommentParsing(object? sender, TokenBase tokenBase)
-    {
-        switch (tokenBase.Type)
+    private void ValidTokenFoundDuringCommentParsing(object? _, TokenEventArgs eventArgs)
+	{
+        switch (eventArgs.TokenType)
         {
             case TokenType.NewLine:
                 if (previousParsing is null)
@@ -240,14 +237,14 @@ public class ContentParser
                 previousParsing();
                 break;
             default:
-                throw new InvalidTokenException("Invalid tokenBase found during comment parsing: " + tokenBase.Symbol);
+                throw new InvalidTokenException("Invalid tokenBase found during comment parsing: " + eventArgs.Symbol);
         }
     }
 
     //Parsing top layer
-    protected void ValidTokenFoundDuringMainParsing(object? sender, TokenBase tokenBase)
+    protected void ValidTokenFoundDuringMainParsing(object? _, TokenEventArgs eventArgs)
     {
-        switch (tokenBase.Type)
+        switch (eventArgs.TokenType)
         {
             case TokenType.InlineComment:
                 //go to next line, init comment parsing
@@ -258,14 +255,14 @@ public class ContentParser
                 InitCategoryParsing();
                 break;
             default:
-                throw new InvalidTokenException("Invalid tokenBase found during parsing of the file: " + tokenBase.Symbol);
+                throw new InvalidTokenException("Invalid tokenBase found during parsing of the file: " + eventArgs.Symbol);
         }
     }
 
     //when parsing a category
-    protected void ValidTokenFoundDuringCategoryParsing(object? sender, TokenBase tokenBase)
+    protected void ValidTokenFoundDuringCategoryParsing(object? _, TokenEventArgs eventArgs)
     {
-        switch (tokenBase.Type)
+        switch (eventArgs.TokenType)
         {
             case TokenType.CategoryClosing:
                 InitKeyIdParsing();
@@ -279,7 +276,7 @@ public class ContentParser
                 {
                     throw new InvalidOperationException("Current category is null when trying to parse line concatenator.");
 				}
-                currentCategory.Name += tokenBase.Symbol;
+                currentCategory.Name += eventArgs.Symbol;
                 break;
             case TokenType.Letter:
             case TokenType.Space:
@@ -287,17 +284,17 @@ public class ContentParser
 				{
 					throw new InvalidOperationException("Current category is null when trying to parse line concatenator.");
 				}
-				currentCategory.Name += tokenBase.Symbol;
+				currentCategory.Name += eventArgs.Symbol;
                 break;
             default:
-                throw new InvalidTokenException("Invalid tokenBase found during parsing of the file: " + tokenBase.Symbol);
+                throw new InvalidTokenException("Invalid tokenBase found during parsing of the file: " + eventArgs.Symbol);
         }
     }
 
     //when parsing a tokenBase id
-    protected void ValidTokenFoundDuringKeyIdParsing(object? sender, TokenBase tokenBase)
+    protected void ValidTokenFoundDuringKeyIdParsing(object? _, TokenEventArgs eventArgs)
     {
-        switch (tokenBase.Type)
+        switch (eventArgs.TokenType)
         {
             case TokenType.ValueMarker:
                 InitPureValueParsing();
@@ -309,7 +306,7 @@ public class ContentParser
                 if (!string.IsNullOrEmpty(keyTmpValue))
                     SerializeCurrentTmpValueAsAnonymousKey();
                 break;
-            case TokenType.EQ:
+            case TokenType.Equality:
                 // multiple EQ tokens in formula
                 if (!string.IsNullOrEmpty(currentKey?.Id))
                 {
@@ -323,11 +320,11 @@ public class ContentParser
                 //ignore spaces at the begining
                 if (!string.IsNullOrEmpty(keyTmpValue))
                 {
-                    keyTmpValue += tokenBase.Symbol;
+                    keyTmpValue += eventArgs.Symbol;
                 }
                 break;
             case TokenType.Letter:
-                keyTmpValue += tokenBase.Symbol;
+                keyTmpValue += eventArgs.Symbol;
                 break;
             case TokenType.CategoryOpening:
                 KeyParsingComplete();
@@ -338,20 +335,20 @@ public class ContentParser
                 InitCommentParsing(InitKeyIdParsing);
                 break;
             default:
-                throw new InvalidTokenException("Invalid tokenBase found during parsing of the file: " + tokenBase.Symbol);
+                throw new InvalidTokenException("Invalid tokenBase found during parsing of the file: " + eventArgs.Symbol);
         }
     }
 
     //When parsing value
-    protected void ValidTokenFoundDuringKeyValueParsing(object? sender, TokenBase tokenBase)
+    protected void ValidTokenFoundDuringKeyValueParsing(object? _, TokenEventArgs eventArgs)
     {
-        switch (tokenBase.Type)
+        switch (eventArgs.TokenType)
         {
             case TokenType.ValueSeparator:
                 ValueParsingComplete(allowNull: true);
                 break;
             case TokenType.Letter:
-                keyTmpValue += tokenBase.Symbol;
+                keyTmpValue += eventArgs.Symbol;
                 break;
             case TokenType.NewLine:
                 ValueParsingComplete();
@@ -375,14 +372,14 @@ public class ContentParser
         }
     }
 
-    protected void InvalidTokenFound(object? sender, TokenBase tokenBase)
+    protected void InvalidTokenFound(object? sender, TokenEventArgs eventArgs)
     {
         var builder = new StringBuilder();
         builder.AppendLine($"Invalid tokenBase found during {parsingType} parsing: ");
-        builder.AppendLine($"Symbol: {tokenBase.Symbol}");
-        builder.AppendLine($"Token type: {tokenBase.Type}");
-        builder.AppendLine($"Allowed tokens: {string.Join(", ", parser.AllowedTokens.Select(t => t.Type.ToString()))}");
-        builder.AppendLine($"Ignored tokens: {string.Join(", ", parser.IgnoredTokens.Select(t => t.Type.ToString()))}");
+        builder.AppendLine($"Symbol: {eventArgs.Symbol}");
+        builder.AppendLine($"Token type: {eventArgs.TokenType}");
+        builder.AppendLine($"Allowed tokens: {string.Join(", ", parser.AllowedTokens.Select(t => $"{t}"))}");
+        builder.AppendLine($"Ignored tokens: {string.Join(", ", parser.IgnoredTokens.Select(t => $"{t}"))}");
         throw new InvalidTokenException(builder.ToString());
     }
 
