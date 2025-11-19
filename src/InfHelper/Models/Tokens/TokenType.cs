@@ -10,11 +10,11 @@ namespace InfHelper.Models.Tokens;
 /// <remarks>The order of the enum values is important, as the int value is used to handle symbol priority.</remarks>
 public enum TokenType
 {
-    Letter,
-    Equality,
-    CategoryOpening,
+	Letter,
+	Equality,
+	CategoryOpening,
 	CategoryClosing,
-    WhiteSpace,
+	WhiteSpace,
 	NewLine,
 	LineConcatenator,
 	ValueSeparator,

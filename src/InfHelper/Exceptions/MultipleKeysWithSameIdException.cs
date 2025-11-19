@@ -4,7 +4,7 @@ namespace InfHelper.Exceptions;
 
 public class MultipleKeysWithSameIdException : InfParserException
 {
-    public MultipleKeysWithSameIdException() { }
-    public MultipleKeysWithSameIdException(string message) : base(message) { }
-    public MultipleKeysWithSameIdException(string message, Exception innerException) : base(message, innerException) { }
+	public MultipleKeysWithSameIdException() { }
+	public MultipleKeysWithSameIdException(string message) : base(message) { }
+	public MultipleKeysWithSameIdException(string message, Exception innerException) : base(message, innerException) { }
 }
