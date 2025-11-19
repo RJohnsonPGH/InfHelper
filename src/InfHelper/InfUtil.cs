@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reflection;
 using InfHelper.Models;
 using InfHelper.Models.Attributes;
-using InfHelper.Models.Sections;
 using InfHelper.Parsers;
 
 namespace InfHelper;
@@ -16,7 +15,33 @@ public static class InfUtil
 	{
 		var infData = new InfData();
 		var parser = new ContentParser();
-		parser.CategoryDiscovered += (sender, category) => infData.Categories.Add(category);
+		parser.CategoryDiscovered += (sender, category) =>
+		{
+			var existingCategory = infData.Categories
+				.FirstOrDefault(x => x.IsNamed(category.Name));
+
+			if (existingCategory is null)
+			{
+				infData.Categories.Add(category);
+				return;
+			}
+
+			// Merge keys
+			foreach (var key in category.Keys)
+			{
+				var existingKey = existingCategory.Keys
+					.FirstOrDefault(x => string.Equals(x.Id, key.Id, StringComparison.OrdinalIgnoreCase));
+
+				if (existingKey is null)
+				{
+					existingCategory.Keys.Add(key);
+					continue;
+				}
+
+				existingKey.KeyValues = key.KeyValues;
+			}
+
+		};
 		parser.Parse(data);
 		return infData;
 	}
@@ -70,6 +95,7 @@ public static class InfUtil
 
 		parser.CategoryDiscovered += (sender, category) =>
 		{
+#warning add merge code
 			infData.Categories.Add(category);
 			foreach (var property in t.GetProperties())
 			{

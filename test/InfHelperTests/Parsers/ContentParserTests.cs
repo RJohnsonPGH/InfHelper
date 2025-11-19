@@ -36,7 +36,7 @@ public class ContentParserTests
 		var data = InfUtil.Parse(content);
 
 		// random key and key value
-		Assert.AreEqual(2, data.Categories.Count);
+		Assert.AreEqual(4, data.Categories.Count);
 		Assert.AreEqual(7, data["Version"].Keys.Count);
 	}
 
