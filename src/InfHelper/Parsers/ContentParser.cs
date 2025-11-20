@@ -10,12 +10,50 @@ namespace InfHelper.Parsers;
 
 public class ContentParser
 {
+	private enum ParsingType
+	{
+		None,
+		Main,
+		Category,
+		KeyId,
+		KeyValue,
+		PureValue,
+		Comment,
+	}
+
+	private readonly Dictionary<ParsingType, HashSet<TokenType>> _parsingAllowedTokenLookup = new()
+	{
+		{ ParsingType.Main,      [TokenType.InlineComment, TokenType.CategoryOpening] },
+		{ ParsingType.Category,  [ TokenType.Space, TokenType.CategoryClosing, TokenType.Letter, TokenType.LineConcatenator] },
+		{ ParsingType.KeyId,     [TokenType.InlineComment, TokenType.Letter, TokenType.Equality, TokenType.Space, TokenType.WhiteSpace,
+									TokenType.CategoryOpening, TokenType.NewLine, TokenType.ValueSeparator, TokenType.ValueMarker] },
+		{ ParsingType.KeyValue,  [TokenType.ValueSeparator, TokenType.Letter, TokenType.NewLine, TokenType.Space, TokenType.WhiteSpace,
+									TokenType.InlineComment, TokenType.ValueMarker] },
+		{ ParsingType.PureValue, [TokenType.Letter, TokenType.ValueMarker, TokenType.Space, TokenType.WhiteSpace, TokenType.ValueSeparator,
+									TokenType.NewLine] },
+		{ ParsingType.Comment,   [TokenType.NewLine] },
+	};
+
+	private readonly Dictionary<ParsingType, HashSet<TokenType>> _parsingIgnoredTokenLookup = new()
+	{
+		{ ParsingType.Main,      [TokenType.WhiteSpace, TokenType.NewLine] },
+		{ ParsingType.Category,  [] },
+		{ ParsingType.KeyId,     [TokenType.LineConcatenator] },
+		{ ParsingType.KeyValue,  [TokenType.LineConcatenator, TokenType.Equality] },
+		{ ParsingType.PureValue, [TokenType.InlineComment, TokenType.LineConcatenator, TokenType.Equality, TokenType.CategoryOpening,
+									TokenType.CategoryClosing] },
+		{ ParsingType.Comment,   [TokenType.Letter, TokenType.Space, TokenType.WhiteSpace, TokenType.ValueMarker, TokenType.ValueSeparator,
+									TokenType.LineConcatenator, TokenType.Equality, TokenType.InlineComment, TokenType.CategoryOpening, 
+									TokenType.CategoryClosing] },
+	};
+
+
 	private Category? currentCategory;
 	private Key? currentKey;
 	private readonly ITokenParser parser;
 	private string? keyTmpValue;
 	private Action? previousParsing;
-	private string parsingType = "";
+	private ParsingType _parsingType;
 
 	/// <summary>
 	/// When category parsing is completed
@@ -44,21 +82,11 @@ public class ContentParser
 	/// </summary>
 	protected void InitMainParsing()
 	{
-		parsingType = "main parsing";
+		_parsingType = ParsingType.Main;
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringMainParsing;
-
-		parser.AllowedTokens = new HashSet<TokenType>
-		{
-			TokenType.InlineComment,
-			TokenType.CategoryOpening
-		};
-
-		parser.IgnoredTokens = new HashSet<TokenType>
-		{
-			TokenType.WhiteSpace,
-			TokenType.NewLine
-		};
+		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
+		parser.IgnoredTokens = _parsingIgnoredTokenLookup[_parsingType];
 	}
 
 	/// <summary>
@@ -66,18 +94,12 @@ public class ContentParser
 	/// </summary>
 	protected void InitCategoryParsing()
 	{
-		parsingType = "category parsing";
+		_parsingType = ParsingType.Category;
 		currentCategory = new Category();
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringCategoryParsing;
-		parser.IgnoredTokens?.Clear();
-		parser.AllowedTokens = new HashSet<TokenType>
-		{
-			TokenType.Space,
-			TokenType.CategoryClosing,
-			TokenType.Letter,
-			TokenType.LineConcatenator
-		};
+		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
+		parser.IgnoredTokens = _parsingIgnoredTokenLookup[_parsingType];
 	}
 
 	/// <summary>
@@ -85,28 +107,12 @@ public class ContentParser
 	/// </summary>
 	protected void InitKeyIdParsing()
 	{
-		parsingType = "key id parsing";
+		_parsingType = ParsingType.KeyId;
 		currentKey = new Key();
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringKeyIdParsing;
-
-		parser.AllowedTokens = new HashSet<TokenType>
-		{
-			TokenType.InlineComment,
-			TokenType.Letter,
-			TokenType.Equality,
-			TokenType.Space,
-			TokenType.WhiteSpace,
-			TokenType.CategoryOpening,
-			TokenType.NewLine,
-			TokenType.ValueSeparator,
-			TokenType.ValueMarker
-		};
-
-		parser.IgnoredTokens = new HashSet<TokenType>
-		{
-			TokenType.LineConcatenator
-		};
+		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
+		parser.IgnoredTokens = _parsingIgnoredTokenLookup[_parsingType];
 	}
 
 	/// <summary>
@@ -114,52 +120,20 @@ public class ContentParser
 	/// </summary>
 	protected void InitKeyValueParsing()
 	{
-		parsingType = "key value parsing";
+		_parsingType = ParsingType.KeyValue;
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringKeyValueParsing;
-
-		parser.AllowedTokens = new HashSet<TokenType>
-		{
-			TokenType.ValueSeparator,
-			TokenType.Letter,
-			TokenType.NewLine,
-			TokenType.Space,
-			TokenType.WhiteSpace,
-			TokenType.InlineComment,
-			TokenType.ValueMarker
-		};
-
-		parser.IgnoredTokens = new HashSet<TokenType>()
-		{
-			TokenType.LineConcatenator,
-			TokenType.Equality
-		};
+		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
+		parser.IgnoredTokens = _parsingIgnoredTokenLookup[_parsingType];
 	}
 
 	protected void InitPureValueParsing()
 	{
-		parsingType = "pure value parsing";
+		_parsingType = ParsingType.PureValue;
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringPureValueParsing;
-
-		parser.AllowedTokens = new HashSet<TokenType>
-		{
-			TokenType.Letter,
-			TokenType.ValueMarker,
-			TokenType.Space,
-			TokenType.WhiteSpace,
-			TokenType.ValueSeparator,
-			TokenType.NewLine
-		};
-
-		parser.IgnoredTokens = new HashSet<TokenType>()
-		{
-			TokenType.InlineComment,
-			TokenType.LineConcatenator,
-			TokenType.Equality,
-			TokenType.CategoryOpening,
-			TokenType.CategoryClosing
-		};
+		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
+		parser.IgnoredTokens = _parsingIgnoredTokenLookup[_parsingType];
 	}
 
 	/// <summary>
@@ -167,29 +141,12 @@ public class ContentParser
 	/// </summary>
 	protected void InitCommentParsing(Action previous)
 	{
-		parsingType = "comment parsing";
+		_parsingType = ParsingType.Comment;
 		previousParsing = previous;
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringCommentParsing;
-
-		parser.AllowedTokens = new HashSet<TokenType>
-		{
-			TokenType.NewLine
-		};
-
-		parser.IgnoredTokens = new HashSet<TokenType>()
-		{
-			TokenType.Letter,
-			TokenType.Space,
-			TokenType.WhiteSpace,
-			TokenType.ValueMarker,
-			TokenType.ValueSeparator,
-			TokenType.LineConcatenator,
-			TokenType.Equality,
-			TokenType.InlineComment,
-			TokenType.CategoryOpening,
-			TokenType.CategoryClosing
-		};
+		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
+		parser.IgnoredTokens = _parsingIgnoredTokenLookup[_parsingType];
 	}
 
 	// Parsing value inside ""
@@ -375,7 +332,7 @@ public class ContentParser
 	protected void InvalidTokenFound(object? sender, TokenEventArgs eventArgs)
 	{
 		var builder = new StringBuilder();
-		builder.AppendLine($"Invalid tokenBase found during {parsingType} parsing: ");
+		builder.AppendLine($"Invalid tokenBase found during {_parsingType} parsing: ");
 		builder.AppendLine($"Symbol: {eventArgs.Symbol}");
 		builder.AppendLine($"Token type: {eventArgs.TokenType}");
 		builder.AppendLine($"Allowed tokens: {string.Join(", ", parser.AllowedTokens.Select(t => $"{t}"))}");

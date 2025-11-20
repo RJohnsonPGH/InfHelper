@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace InfHelper.Models;
 
+[Obsolete("Refactor all uses of this class to use Dictionary<string, List<KeyValue>> instead.")]
 public class Key
 {
 	/// <summary>
