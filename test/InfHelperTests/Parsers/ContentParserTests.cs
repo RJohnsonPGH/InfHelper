@@ -20,37 +20,28 @@ public class ContentParserTests
 	public void CategoryParsing()
 	{
 		string test = "[CATEGORY]";
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		var parser = new ContentParser();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 
 		parser.Parse(test);
 
-		Assert.IsTrue(categories.Count == 1 && categories.First().Name == "CATEGORY");
-	}
-
-	[TestMethod()]
-	public void MergeDuplicateCategories()
-	{
-		var content = File.ReadAllText(Path.Combine(testFolder, "mergesections.inf"));
-		var data = InfUtil.Parse(content);
-
-		// random key and key value
-		Assert.AreEqual(4, data.Categories.Count);
-		Assert.AreEqual(7, data["Version"].Keys.Count);
+		Assert.AreEqual(1, categories.Count);
+		Assert.AreEqual("CATEGORY", categories.First().Name);
 	}
 
 	[TestMethod()]
 	public void CategoryWithSlashParsing()
 	{
 		string test = "[CATEGOR\\Y]";
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		var parser = new ContentParser();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 
 		parser.Parse(test);
 
-		Assert.IsTrue(categories.Count == 1 && categories.First().Name == "CATEGOR\\Y");
+		Assert.AreEqual(1, categories.Count);
+		Assert.AreEqual("CATEGOR\\Y", categories.First().Name);
 	}
 
 	[TestMethod()]
@@ -58,7 +49,7 @@ public class ContentParserTests
 	public void CategoryWithSlashAsLastCharacterParsing()
 	{
 		string test = "[CATEGORY\\]";
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		var parser = new ContentParser();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 
@@ -78,13 +69,13 @@ public class ContentParserTests
 
 		string test = string.Join(" \n ", testCategories);
 
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		var parser = new ContentParser();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 
 		parser.Parse(test);
 
-		Assert.IsTrue(categories.Count == CATEGORIES_COUNT);
+		Assert.AreEqual(CATEGORIES_COUNT, categories.Count);
 
 		for (var i = 1; i <= CATEGORIES_COUNT; i++)
 		{
@@ -98,16 +89,16 @@ public class ContentParserTests
 		string formula = "[Category] \n Key = Value";
 		var parser = new ContentParser();
 
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 		parser.Parse(formula);
 
-		Assert.IsTrue(categories.First().Name == "Category");
-		var key = categories.First().Keys.First();
+		Assert.AreEqual("Category", categories.First().Name);
+		var entry = categories.First().Entries.First();
 
-		Assert.IsTrue(string.Equals(key.Id, "Key", StringComparison.Ordinal));
-		Assert.IsTrue(key.KeyValues.Count == 1);
-		Assert.IsTrue(string.Equals(key.KeyValues[0].Value, "Value", StringComparison.Ordinal));
+		Assert.AreEqual("Key", entry.Name); // StringComparison.Ordinal);
+		Assert.AreEqual(1, entry.Values.Count);
+		Assert.AreEqual("Value", entry.Values[0].Value); // StringComparison.Ordinal);
 	}
 
 	[TestMethod()]
@@ -121,19 +112,21 @@ public class ContentParserTests
 		}
 		var parser = new ContentParser();
 
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 		parser.Parse(formula);
 
 		var firstCategory = categories.First();
 
-		Assert.IsTrue(firstCategory.Name == "Category");
-		Assert.IsTrue(firstCategory.Keys.Count == 4);
+		Assert.AreEqual("Category", firstCategory.Name);
+		Assert.AreEqual(4, firstCategory.Entries.Count);
 
-		for (var i = 0; i < Keys_Count; i++)
+		int j = 0;
+		foreach (var currentEntry in firstCategory.Entries)
 		{
-			Assert.IsTrue(firstCategory.Keys[i].Id == $"Key{i}");
-			Assert.IsTrue(firstCategory.Keys[i].KeyValues.First().Value == $"Value{i}");
+			Assert.AreEqual($"Key{j}", currentEntry.Name);
+			Assert.AreEqual($"Value{j}", currentEntry.Values[0].Value);
+			j++;
 		}
 	}
 
@@ -145,19 +138,20 @@ public class ContentParserTests
 
 		var parser = new ContentParser();
 
-		var categories = new List<Category>();
-		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
+		var sections = new List<Section>();
+		parser.CategoryDiscovered += (sender, section) => sections.Add(section);
 		parser.Parse(formula);
 
-		var firstCategory = categories.First();
+		var firstSection = sections.First();
 
-		Assert.IsTrue(firstCategory.Name == "Install_MPCIEX_GENM2_D_REV_59_7265_BGN_2x2_HMC_WINT_64_BGN15.Services");
+		Assert.AreEqual(2, firstSection.Entries.Count);
+		Assert.AreEqual("Install_MPCIEX_GENM2_D_REV_59_7265_BGN_2x2_HMC_WINT_64_BGN15.Services", firstSection.Name);
 
-		Assert.AreEqual(firstCategory.Keys[0].Id, "Include");
-		Assert.AreEqual(firstCategory.Keys[1].Id, "Needs");
+		Assert.AreEqual("Include", firstSection.Entries[0].Name);
+		Assert.AreEqual("Needs", firstSection.Entries[1].Name);
 
-		Assert.AreEqual(firstCategory.Keys[0].KeyValues.First().Value, "netvwifibus.inf");
-		Assert.AreEqual(firstCategory.Keys[1].KeyValues.First().Value, "VWiFiBus.Services");
+		Assert.AreEqual("netvwifibus.inf", firstSection.Entries[0].Values[0].Value);
+		Assert.AreEqual("VWiFiBus.Services", firstSection.Entries[1].Values[0].Value);
 	}
 
 	[TestMethod()]
@@ -168,59 +162,64 @@ public class ContentParserTests
 
 		var parser = new ContentParser();
 
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 		parser.Parse(formula);
 
 		var firstCategory = categories.First();
 
-		Assert.AreEqual(firstCategory.Name, "Install_MPCIEX_GENM2_D_REV_61_7265_BGN_2x2_HMC_WINT_64_BGN15.Services");
-		Assert.AreEqual(firstCategory.Keys[0].Id, "AddService");
-		var values = firstCategory.Keys.First().KeyValues;
+		Assert.AreEqual("Install_MPCIEX_GENM2_D_REV_61_7265_BGN_2x2_HMC_WINT_64_BGN15.Services", firstCategory.Name);
+		Assert.AreEqual("AddService", firstCategory.Entries.First().Name);
+		var values = firstCategory.Entries.First().Values.ToList();
 
-		Assert.AreEqual(values[0].Value, "Netwtw04");
-		Assert.AreEqual(values[1].Value, "2");
-		Assert.AreEqual(values[2].Value, "NIC_Service_WINT_64");
-		Assert.AreEqual(values[3].Value, "Common_EventLog_WINT_64");
+		Assert.AreEqual("Netwtw04", values[0].Value);
+		Assert.AreEqual("2", values[1].Value);
+		Assert.AreEqual("NIC_Service_WINT_64", values[2].Value);
+		Assert.AreEqual("Common_EventLog_WINT_64", values[3].Value);
 	}
 
 	[TestMethod()]
 	public void SimpleCategoryWithMultipleMultiValueKeys()
 	{
 		string formula =
-			"[Intel.NTAMD64.6.2]\r\n%IntcAudDeviceDesc% = IntcAudModel, HDAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101, HDAUDIO\\FUNC_01&VEN_8086&DEV_2809\r\n%IntcAudDeviceDesc% = IntcAudModel, INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101, INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809\r\n%IntcAudDeviceDesc% = IntcAudModel, HDAUDIO\\FUNC_01&VEN_8086&DEV_280A&SUBSYS_80860101, HDAUDIO\\FUNC_01&VEN_8086&DEV_280A";
+			"[Intel.NTAMD64.6.2]\r\n%IntcAudDeviceDesc% = IntcAudModel, HDAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101, HDAUDIO\\FUNC_01&VEN_8086&DEV_2809\r\n%IntcAudDeviceDesc% = IntcAudModel, " +
+			"INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101, INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809\r\n%IntcAudDeviceDesc% = IntcAudModel, HDAUDIO\\FUNC_01&VEN_8086&DEV_280A&SUBSYS_80860101, HDAUDIO\\FUNC_01&VEN_8086&DEV_280A";
 
 		var parser = new ContentParser();
 
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 		parser.Parse(formula);
 
+		Assert.AreEqual(1, categories.Count);
 		var firstCategory = categories.First();
 
-		Assert.AreEqual(firstCategory.Name, "Intel.NTAMD64.6.2");
-		Assert.IsTrue(firstCategory.Keys.Count == 3);
+		Assert.AreEqual("Intel.NTAMD64.6.2", firstCategory.Name);
+		Assert.AreEqual(3, firstCategory.Entries.Count);
 
 		//first key
-		var key = firstCategory.Keys[0];
-		Assert.AreEqual(key.Id, "%IntcAudDeviceDesc%");
-		Assert.AreEqual(key.KeyValues[0].Value, "IntcAudModel");
-		Assert.AreEqual(key.KeyValues[1].Value, "HDAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101");
-		Assert.AreEqual(key.KeyValues[2].Value, "HDAUDIO\\FUNC_01&VEN_8086&DEV_2809");
+		var entry = firstCategory.Entries.First();
+		var values = entry.Values.ToList();
+		Assert.AreEqual("%IntcAudDeviceDesc%", entry.Name);
+		Assert.AreEqual("IntcAudModel", values[0].Value);
+		Assert.AreEqual("HDAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101", values[1].Value);
+		Assert.AreEqual("HDAUDIO\\FUNC_01&VEN_8086&DEV_2809", values[2].Value);
 
 		//second key
-		key = firstCategory.Keys[1];
-		Assert.AreEqual(key.Id, "%IntcAudDeviceDesc%");
-		Assert.AreEqual(key.KeyValues[0].Value, "IntcAudModel");
-		Assert.AreEqual(key.KeyValues[1].Value, "INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101");
-		Assert.AreEqual(key.KeyValues[2].Value, "INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809");
+		entry = firstCategory.Entries.Skip(1).First();
+		values = [.. entry.Values];
+		Assert.AreEqual("%IntcAudDeviceDesc%", entry.Name);
+		Assert.AreEqual("IntcAudModel", values[0].Value);
+		Assert.AreEqual("INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809&SUBSYS_80860101", values[1].Value);
+		Assert.AreEqual("INTELAUDIO\\FUNC_01&VEN_8086&DEV_2809", values[2].Value);
 
 		//third key
-		key = firstCategory.Keys[2];
-		Assert.AreEqual(key.Id, "%IntcAudDeviceDesc%");
-		Assert.AreEqual(key.KeyValues[0].Value, "IntcAudModel");
-		Assert.AreEqual(key.KeyValues[1].Value, "HDAUDIO\\FUNC_01&VEN_8086&DEV_280A&SUBSYS_80860101");
-		Assert.AreEqual(key.KeyValues[2].Value, "HDAUDIO\\FUNC_01&VEN_8086&DEV_280A");
+		entry = firstCategory.Entries.Skip(2).First();
+		values = [.. entry.Values];
+		Assert.AreEqual("%IntcAudDeviceDesc%", entry.Name);
+		Assert.AreEqual("IntcAudModel", values[0].Value);
+		Assert.AreEqual("HDAUDIO\\FUNC_01&VEN_8086&DEV_280A&SUBSYS_80860101", values[1].Value);
+		Assert.AreEqual("HDAUDIO\\FUNC_01&VEN_8086&DEV_280A", values[2].Value);
 	}
 
 	[TestMethod]
@@ -246,28 +245,28 @@ public class ContentParserTests
 	{
 		var content = File.ReadAllText(Path.Combine(testFolder, "oem100.inf"));
 		var parser = new ContentParser();
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 		parser.Parse(content);
 
 		//Check categories names
-		Assert.AreEqual(categories[0].Name, "Version");
-		Assert.AreEqual(categories[1].Name, "DestinationDirs");
-		Assert.AreEqual(categories[2].Name, "Manufacturer");
-		Assert.AreEqual(categories[3].Name, "Standard");
-		Assert.AreEqual(categories[4].Name, "Standard.NTAMD64");
-		Assert.AreEqual(categories[5].Name, "Razer.NTx86");
-		Assert.AreEqual(categories[6].Name, "Razer.NTAMD64");
-		Assert.AreEqual(categories[7].Name, "Razer.NTAMD64.HW");
-		Assert.AreEqual(categories[8].Name, "Razer.NTAMD64.Services");
-		Assert.AreEqual(categories[9].Name, "SourceDisksNames");
-		Assert.AreEqual(categories[10].Name, "SourceDisksFiles");
-		Assert.AreEqual(categories[11].Name, "Razer.NTAMD64.CoInstallers");
-		Assert.AreEqual(categories[12].Name, "Razer_CoInstaller_AddReg");
-		Assert.AreEqual(categories[13].Name, "Razer_CoInstaller_CopyFiles");
-		Assert.AreEqual(categories[14].Name, "Razer_Installer_CopyFiles");
-		Assert.AreEqual(categories[15].Name, "Razer_Installer_CopyFilesWOW64");
-		Assert.AreEqual(categories[16].Name, "Strings");
+		Assert.AreEqual("Version", categories[0].Name);
+		Assert.AreEqual("DestinationDirs", categories[1].Name);
+		Assert.AreEqual("Manufacturer", categories[2].Name);
+		Assert.AreEqual("Standard", categories[3].Name);
+		Assert.AreEqual("Standard.NTAMD64", categories[4].Name);
+		Assert.AreEqual("Razer.NTx86", categories[5].Name);
+		Assert.AreEqual("Razer.NTAMD64", categories[6].Name);
+		Assert.AreEqual("Razer.NTAMD64.HW", categories[7].Name);
+		Assert.AreEqual("Razer.NTAMD64.Services", categories[8].Name);
+		Assert.AreEqual("SourceDisksNames", categories[9].Name);
+		Assert.AreEqual("SourceDisksFiles", categories[10].Name);
+		Assert.AreEqual("Razer.NTAMD64.CoInstallers", categories[11].Name);
+		Assert.AreEqual("Razer_CoInstaller_AddReg", categories[12].Name);
+		Assert.AreEqual("Razer_CoInstaller_CopyFiles", categories[13].Name);
+		Assert.AreEqual("Razer_Installer_CopyFiles", categories[14].Name);
+		Assert.AreEqual("Razer_Installer_CopyFilesWOW64", categories[15].Name);
+		Assert.AreEqual("Strings", categories[16].Name);
 	}
 
 	[TestMethod]
@@ -275,12 +274,12 @@ public class ContentParserTests
 	{
 		var content = File.ReadAllText(Path.Combine(testFolder, "sourcediskspaces.inf"));
 		var parser = new ContentParser();
-		var categories = new List<Category>();
+		var categories = new List<Section>();
 		parser.CategoryDiscovered += (sender, category) => categories.Add(category);
 		parser.Parse(content);
 
 		var sourceDiskFiles = categories.Where(c => c.Name == "SourceDisksFiles").ToList();
-		Assert.AreEqual(sourceDiskFiles[0].Keys[0].Id, "Dep With Space.txt");
-		Assert.AreEqual(sourceDiskFiles[0].Keys[1].Id, "file2.txt");
+		Assert.AreEqual("Dep With Space.txt", sourceDiskFiles[0].Entries.First().Name);
+		Assert.AreEqual("file2.txt", sourceDiskFiles[0].Entries.Last().Name);
 	}
 }

@@ -7,13 +7,13 @@ namespace InfHelper.Models;
 
 public sealed class InfData
 {
-	public List<Category> Categories { get; set; } = [];
+	public List<Section> Sections { get; set; } = [];
 
-	public Category this[string name]
+	public Section this[string name]
 	{
 		get
 		{
-			var results = Categories.Where(k => string.Compare(k.Name, name, StringComparison.OrdinalIgnoreCase) == 0);
+			var results = Sections.Where(k => string.Compare(k.Name, name, StringComparison.OrdinalIgnoreCase) == 0);
 			if (results.Count() > 1)
 			{
 				throw new MultipleCategoriesWithSameNameException();
@@ -24,9 +24,9 @@ public sealed class InfData
 		set
 		{
 			int index = -1;
-			for (var i = 0; i < Categories.Count; i++)
+			for (var i = 0; i < Sections.Count; i++)
 			{
-				if (Categories[i].Name != name) continue;
+				if (Sections[i].Name != name) continue;
 				//id match found
 				if (index == -1)
 				{
@@ -42,26 +42,22 @@ public sealed class InfData
 			//add new
 			if (index == -1)
 			{
-				Categories.Add(value);
+				Sections.Add(value);
 			}
 
 			//udpate existing
 			else
 			{
-				Categories[index] = value;
+				Sections[index] = value;
 			}
 		}
 	}
 
-	public IEnumerable<Key> FindKeyById(string keyId)
+	public Entry FindEntryById(string keyId)
 	{
-		foreach (var category in Categories)
-		{
-			foreach (var key in category.Keys)
-			{
-				if (string.Compare(key.Id, keyId, StringComparison.OrdinalIgnoreCase) == 0)
-					yield return key;
-			}
-		}
+		return Sections
+			.SelectMany(s => s.Entries)
+			.LastOrDefault(e => string.Equals(e.Name, keyId, StringComparison.OrdinalIgnoreCase)) ?? // Last entry wins
+			throw new InvalidOperationException("Entry not found.");
 	}
 }

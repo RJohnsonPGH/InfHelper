@@ -1,22 +1,18 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System;
+using System.Collections.Generic;
 
 namespace InfHelper.Models.Sections;
 
-public sealed record InfManufacturer(string Name, IEnumerable<InfModel> Models)
+public sealed record InfManufacturer : InfRootEntry, IInfRoot<InfManufacturer>
 {
-	public static IEnumerable<InfManufacturer> Parse(InfData data)
+	internal InfManufacturer(string name, Entry entry, InfSectionCollection allSections) : base(name, entry)
 	{
-		var manufacturerCategory = data.Categories.FirstOrDefault(c => c.IsNamed("Manufacturer"));
-
-		if (manufacturerCategory is null)
-		{
-			return [];
-		}
-
-		var name = manufacturerCategory.Name;
-		return manufacturerCategory
-			.Keys
-			.Select(x => new InfManufacturer(x.Id, InfModel.Parse(x, data)));
+		_modelSection = new(TypedInfData.ParseBranchSection<InfModel>(allSections, entry.Values[0].Value));
 	}
+
+	public IEnumerable<InfModel> Models => _modelSection.Value;
+	private readonly Lazy<InfBranchSection<InfModel>> _modelSection;
+
+	static InfManufacturer IInfRoot<InfManufacturer>.Create(string name, Entry entry, InfSectionCollection allSections) =>
+		new(name, entry, allSections);
 }

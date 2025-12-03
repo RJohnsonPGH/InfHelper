@@ -1,31 +1,33 @@
-﻿using System;
+﻿using InfHelper.Exceptions;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace InfHelper.Models.Sections;
 
-public sealed record InfModel(string Name, IEnumerable<Key> Keys)
+public sealed record InfModel : InfBranchEntry, IInfBranch<InfModel>
 {
-
-	//var decoratedSections = data.Categories.Where(x => decoratedSectionNames.Contains(x.Name));
-	//
-
-	//	decoratedSections.Select(y => {
-	//						// Each Model KeyValue[0] is the DDInstall section name
-	//						var installSectionName = y.Keys.Select(z => z.KeyValues[0]);
-	//						return new Model(y.Name, []);
-	//})
-	public static IEnumerable<InfModel> Parse(Key key, InfData data)
+	internal InfModel(string name, string extension, Entry entry, InfSectionCollection allSections) : base(name, extension, entry)
 	{
-		// Combine the manufacturer key values to get the decorated section names
-		// e.g. "Standard,NTAMD64" becomes ["Standard", "Standard.NTAMD64"]
-		var decoratedSectionNames = InfUtil.GeneratedDectoratedSections(key.KeyValues);
+		_install = new(() => TypedInfData.ParseBranchSection<InfInstall>(allSections, entry.Values[0].Value));
+		DeviceIds = entry
+			.Values
+			.Skip(1)
+			.Select(x => x.Value);
+	}
 
-		foreach (var sectionName in decoratedSectionNames)
+	public InfBranchSection<InfInstall> Install => _install.Value;
+	private Lazy<InfBranchSection<InfInstall>> _install;
+	public IEnumerable<string> DeviceIds { get; }
+
+	static InfModel IInfBranch<InfModel>.Create(string name, string extension, Entry entry, InfSectionCollection allSections)
+	{
+		// Models must have at least two entries: the install section, and the model ID
+		if (entry.Values.Count < 2)
 		{
-			var decoratedSection = data.Categories.SingleOrDefault(x => x.IsNamed(sectionName))
-				?? throw new InvalidOperationException($"Model does not exist: {sectionName}");
-			yield return new(decoratedSection.Name, decoratedSection.Keys);
+			throw new RequiredEntryMalformedException(extension, name, entry);
 		}
+		return new(name, extension, entry, allSections);
 	}
 }

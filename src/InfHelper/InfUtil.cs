@@ -15,33 +15,7 @@ public static class InfUtil
 	{
 		var infData = new InfData();
 		var parser = new ContentParser();
-		parser.CategoryDiscovered += (sender, category) =>
-		{
-			var existingCategory = infData.Categories
-				.FirstOrDefault(x => x.IsNamed(category.Name));
-
-			if (existingCategory is null)
-			{
-				infData.Categories.Add(category);
-				return;
-			}
-
-			// Merge keys
-			foreach (var key in category.Keys)
-			{
-				var existingKey = existingCategory.Keys
-					.FirstOrDefault(x => string.Equals(x.Id, key.Id, StringComparison.OrdinalIgnoreCase));
-
-				if (existingKey is null)
-				{
-					existingCategory.Keys.Add(key);
-					continue;
-				}
-
-				existingKey.KeyValues = key.KeyValues;
-			}
-
-		};
+		parser.CategoryDiscovered += (sender, category) => infData.Sections.Add(category);
 		parser.Parse(data);
 		return infData;
 	}
@@ -68,22 +42,6 @@ public static class InfUtil
    //	 };
 	}
 
-	internal static IEnumerable<string> GeneratedDectoratedSections(IEnumerable<KeyValue> keyValues)
-	{
-		if (keyValues.Any(x => x.IsDynamic))
-		{
-			throw new InvalidOperationException("Cannot generate decorated section names for dynamic key values.");
-		}
-
-		var baseSectionName = keyValues.First();
-		yield return baseSectionName.Value;
-
-		foreach (var dectoratedSection in keyValues.Skip(1))
-		{
-			yield return $"{baseSectionName.Value}.{dectoratedSection.Value}";
-		}
-	}
-
 	public static T SerializeInto<T>(string data, out InfData outputData) where T : new()
 	{
 		var o = new T();
@@ -91,38 +49,42 @@ public static class InfUtil
 		var infData = new InfData();
 		var parser = new ContentParser();
 
-		var dict = new Dictionary<Key, PropertyInfo>();
+		var dict = new Dictionary<IEnumerable<EntryValue>, PropertyInfo>();
 
 		parser.CategoryDiscovered += (sender, category) =>
 		{
-#warning add merge code
-			infData.Categories.Add(category);
+			infData.Sections.Add(category);
 			foreach (var property in t.GetProperties())
 			{
-				if (Attribute.IsDefined(property, typeof(InfKeyValue)))
+				if (Attribute.GetCustomAttribute(property, typeof(InfKeyValue)) is not InfKeyValue attribute)
 				{
-					if (Attribute.GetCustomAttribute(property, typeof(InfKeyValue)) is not InfKeyValue attribute)
-					{
-						throw new InvalidOperationException("Attribute InfKeyValue not found on property " + property.Name);
-					}
+					throw new InvalidOperationException("Attribute InfKeyValue not found on property " + property.Name);
+				}
 
-					if (category.IsNamed(attribute.CategoryId))
-					{
-						var key = category[attribute.KeyId];
-						if (key != null)
-						{
-							property.SetValue(o, key.PrimitiveValue);
+				if (!Attribute.IsDefined(property, typeof(InfKeyValue)) || 
+					!category.IsNamed(attribute.CategoryId))
+				{
+					continue;
+				}
 
-							//save dynamic values for further dereferencing
-							if (attribute.DeferenceDynamicValueKeys && 
-								key.KeyValues.Count != 0 &&
-								key.KeyValues.Any(x => x.IsDynamic))
-							{
-								// save for later des.
-								dict.Add(key, property);
-							}
-						}
-					}
+				var values = category
+					.Where(x => string
+						.Equals(x.Name, attribute.KeyId, StringComparison.OrdinalIgnoreCase))
+					.SelectMany(x => x.Values);
+						
+				if (values is null)
+				{
+					continue; 
+				}
+
+				property.SetValue(o, GetPrimitiveValueForEntryValues(values));
+
+				//save dynamic values for further dereferencing
+				if (attribute.DeferenceDynamicValueKeys && 
+					values.Any(x => x.IsDynamic))
+				{
+					// save for later des.
+					dict.Add(values, property);
 				}
 			}
 		};
@@ -132,17 +94,20 @@ public static class InfUtil
 		//dereference keys - if some left after category dereferencing
 		if (dict.Count != 0)
 		{
-			DerefereneDynamicKeys(o, infData, dict);
+			ResolveDynamicKeys(o, infData, dict);
 		}
 
 		return o;
 	}
 
-	private static void DerefereneDynamicKeys<T>(T o, InfData infData, Dictionary<Key, PropertyInfo> dict) where T : new()
+	private static string GetPrimitiveValueForEntryValues(IEnumerable<EntryValue> entryValues) => 
+		string.Join(", ", entryValues.Select(x => x.PrimitiveValue));
+
+	private static void ResolveDynamicKeys<T>(T o, InfData infData, Dictionary<IEnumerable<EntryValue>, PropertyInfo> dict) where T : new()
 	{
 		foreach (var item in dict)
 		{
-			string value = GetPrimitiveValueForKey(infData, item.Key);
+			string value = GetPrimitiveValueForEntry(infData, item.Key);
 			if (value != null)
 			{
 				item.Value.SetValue(o, value);
@@ -150,28 +115,33 @@ public static class InfUtil
 		}
 	}
 
-	private static string GetPrimitiveValueForKey(InfData data, Key key)
+	private static string GetPrimitiveValueForEntry(InfData data, IEnumerable<EntryValue> entryValues)
 	{
-		if (key.KeyValues.Count != 0)
+		// The entry has no values, return empty string
+		if (!entryValues.Any())
 		{
-			var first = key.KeyValues.First();
-			//dynamic
-			if (first.IsDynamic)
-			{
-				if (first.DynamicKeyId is null)
-				{
-					throw new InvalidOperationException("Dynamic key value does not have a DynamicKeyId set.");
-				}
-
-				return data.FindKeyById(first.DynamicKeyId) //find dynamic key
-					.First(x => x.KeyValues.All(v => !v.IsDynamic)) // that has not a dynamic value
-					.KeyValues.First().Value ?? //return the first text value
-					throw new InvalidOperationException("Key value for dynamic key was null."); 
-			}
-			//static
-			return key.PrimitiveValue;
+			return string.Empty;
 		}
-		return "";
+
+		// Get the first value, which would be enclosed in '%' if dynamic
+		var firstValue = entryValues.First();
+
+		// The entry is not dynamic, return the primitive value directly
+		if (!firstValue.IsDynamic)
+		{
+			return GetPrimitiveValueForEntryValues(entryValues);
+		}
+
+		// The entry is dynamic, ensure it has a DynamicKeyId
+#warning refactor DynamicKeyId to not be nullable
+		if (firstValue.DynamicKeyId is null)
+		{
+			throw new InvalidOperationException("Dynamic key value does not have a DynamicKeyId set.");
+		}
+
+		return data.FindEntryById(firstValue.DynamicKeyId) // Find an entry that matches the DynamicKeyId
+			.Values.FirstOrDefault()?.Value // Get the first value of that entry
+			?? throw new InvalidOperationException("Key value for dynamic key was null."); 
 	}
 
 	public static T SerializeFileInto<T>(string path, out InfData outputData) where T : new()

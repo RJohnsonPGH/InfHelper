@@ -1,16 +1,18 @@
-﻿using InfHelper.Exceptions;
-using System.Collections.Generic;
+﻿namespace InfHelper.Models.Sections;
 
-namespace InfHelper.Models.Sections;
+//public sealed record InfSourceDiskFiles :, IInfTopLevelSection<InfSourceDiskFiles>
+//{
+//	private InfSourceDiskFiles(string name, InfSectionCollection allSections, InfSectionExtCollection section) : base(section)
+//	{
+//		_name = name;
+//		_allSections = allSections;
+//	}
 
-public sealed record InfSourceDiskFiles(List<Key> Keys) : BaseSection(Keys)
-{
-	public static InfSourceDiskFiles Parse(InfData data)
-	{
-		var sourceDiskFilesCategory = data.Categories
-			.Find(c => c.IsNamed("SourceDisksFiles"))
-			?? throw new RequiredSectionMissingException("SourceDisksFiles");
+//	public string Name => _name;
+//	private readonly string _name;
+//	private readonly InfSectionCollection _allSections;
 
-		return new InfSourceDiskFiles(sourceDiskFilesCategory.Keys);
-	}
-}
+//	static string IInfTopLevelSection<InfSourceDiskFiles>.SectionName => "SourceDisksFiles";
+//	static InfSourceDiskFiles IInfSection<InfSourceDiskFiles>.Create(string name, InfSectionCollection allSections, InfSectionExtCollection section) => 
+//		new(name, allSections, section);
+//}

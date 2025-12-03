@@ -3,6 +3,7 @@ using InfHelper.Models.Tokens;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace InfHelper.Parsers;
 
@@ -23,15 +24,15 @@ public class BasicTokenParser : ITokenParser
 		TokenType.ValueMarker
 	};
 
-	private ISet<TokenType> allTokens;
+	private ISet<TokenType> _allTokenTypes;
 
-	public ISet<TokenType> AllTokens
+	public ISet<TokenType> AllTokenTypes
 	{
-		get => allTokens;
+		get => _allTokenTypes;
 		private set
 		{
 			//Sort by priority - some tokens share symbols e.g. line concentrator and letter
-			allTokens = new HashSet<TokenType>(value.OrderByDescending(x => (int)x));
+			_allTokenTypes = new HashSet<TokenType>(value.OrderByDescending(x => (int)x));
 		}
 	}
 
@@ -41,24 +42,23 @@ public class BasicTokenParser : ITokenParser
 	public ISet<TokenType> AllowedTokens { get; set; }
 	public ISet<TokenType> IgnoredTokens { get; set; }
 
-	public event EventHandler<TokenEventArgs> InvalidTokenFound = default!;
 	public event EventHandler<TokenEventArgs> ValidTokenFound = default!;
 
 	public BasicTokenParser() : this(new HashSet<TokenType>(), new HashSet<TokenType>())
 	{
-		AllTokens = AllAvailableTokens;
+		AllTokenTypes = AllAvailableTokens;
 	}
 
 	public BasicTokenParser(ISet<TokenType> allowedTokens, ISet<TokenType> ignoredTokens)
 	{
-		allTokens = AllAvailableTokens;
+		_allTokenTypes = AllAvailableTokens;
 		AllowedTokens = allowedTokens;
 		IgnoredTokens = ignoredTokens;
 	}
 
 	public BasicTokenParser(ISet<TokenType> allTokens, ISet<TokenType> allowedTokens, ISet<TokenType> ignoredTokens)
 	{
-		this.allTokens = allTokens;
+		this._allTokenTypes = allTokens;
 		AllowedTokens = allowedTokens;
 		IgnoredTokens = ignoredTokens;
 	}
@@ -86,10 +86,9 @@ public class BasicTokenParser : ITokenParser
 			line += c;
 
 			//examine all known tokens
-			foreach (var token in AllTokens)
+			foreach (var tokenType in AllTokenTypes)
 			{
-
-				if (!token.IsToken(c))
+				if (!tokenType.IsToken(c))
 				{
 					continue;
 				}
@@ -98,20 +97,26 @@ public class BasicTokenParser : ITokenParser
 				found = true;
 
 				//ignored tokenBase detected
-				if (IgnoredTokens != null && IgnoredTokens.Any(x => x == token))
+				if (IgnoredTokens != null && IgnoredTokens.Any(x => x == tokenType))
 				{
 					continue;
 				}
 
 				//not allowed tokenBase detected
-				if (AllowedTokens == null || AllowedTokens.All(x => x != token))
+				if (AllowedTokens == null || AllowedTokens.All(x => x != tokenType))
 				{
-					InvalidTokenFound?.Invoke(this, new(token, c));
-					continue;
+					var builder = new StringBuilder();
+					//builder.AppendLine($"Invalid tokenBase found during {_parsingType} parsing: ");
+					builder.AppendLine($"Row: {row}, Column: {col}");
+					builder.AppendLine($"Symbol: {c} ({(int)c})");
+					builder.AppendLine($"Token type: {tokenType}");
+					builder.AppendLine($"Allowed tokens: {string.Join(", ", AllowedTokens?.Select(t => $"{t}") ?? [])}");
+					builder.AppendLine($"Ignored tokens: {string.Join(", ", IgnoredTokens?.Select(t => $"{t}") ?? [])}");
+					throw new InvalidTokenException(builder.ToString());
 				}
 
 				//allowed tokenBase detected
-				ValidTokenFound?.Invoke(this, new(token, c));
+				ValidTokenFound?.Invoke(this, new(tokenType, c));
 				break;
 			}
 

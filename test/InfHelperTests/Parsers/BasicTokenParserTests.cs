@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using InfHelper.Exceptions;
 using InfHelper.Models.Tokens;
 using InfHelper.Parsers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
 
 namespace InfHelperTests.Parsers;
 
@@ -64,15 +65,11 @@ public class BasicTokenParserTests
         });
 
         string result = "";
-        string invalids = "";
+        //string invalids = "";
         parser.ValidTokenFound += (sender, token) => result += token.Symbol;
-        parser.InvalidTokenFound += (sender, token) =>
-        {
-            invalids += token.Symbol;
-        };
-        parser.Parse(formula);
 
-        Assert.IsTrue(invalids.Contains(';') && invalids.Contains('\\'));
+        Assert.ThrowsException<InvalidTokenException>(() => parser.Parse(formula));
+        //Assert.IsTrue(invalids.Contains(';') && invalids.Contains('\\'));
     }
 
     [TestMethod()]

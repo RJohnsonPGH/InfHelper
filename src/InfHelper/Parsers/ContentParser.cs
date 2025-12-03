@@ -3,13 +3,15 @@ using InfHelper.Models;
 using InfHelper.Models.Tokens;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace InfHelper.Parsers;
 
-public class ContentParser
+public class ContentParser(ITokenParser parser)
 {
+	// Alternate constructor
+	public ContentParser() : this(new BasicTokenParser()) { }
+
+	// Internal types
 	private enum ParsingType
 	{
 		None,
@@ -21,6 +23,13 @@ public class ContentParser
 		Comment,
 	}
 
+	private sealed class TemporaryEntry
+	{
+		internal string? Name { get; set; }
+		internal List<EntryValue> Values { get; set; } = [];
+	}
+
+	// Lookups for allowed tokens
 	private readonly Dictionary<ParsingType, HashSet<TokenType>> _parsingAllowedTokenLookup = new()
 	{
 		{ ParsingType.Main,      [TokenType.InlineComment, TokenType.CategoryOpening] },
@@ -48,27 +57,18 @@ public class ContentParser
 	};
 
 
-	private Category? currentCategory;
-	private Key? currentKey;
-	private readonly ITokenParser parser;
-	private string? keyTmpValue;
+	private Section? currentCategory;
+	private TemporaryEntry? currentEntry;
+    private string? keyTmpValue;
 	private Action? previousParsing;
 	private ParsingType _parsingType;
 
 	/// <summary>
 	/// When category parsing is completed
 	/// </summary>
-	public event EventHandler<Category>? CategoryDiscovered;
+	public event EventHandler<Section>? CategoryDiscovered;
 
-	public ContentParser() : this(new BasicTokenParser()) { }
-
-	public ContentParser(ITokenParser parser)
-	{
-		this.parser = parser;
-		parser.InvalidTokenFound += InvalidTokenFound;
-	}
-
-	public void Parse(string content)
+    public void Parse(string content)
 	{
 		InitMainParsing();
 		parser.Parse(content);
@@ -95,7 +95,7 @@ public class ContentParser
 	protected void InitCategoryParsing()
 	{
 		_parsingType = ParsingType.Category;
-		currentCategory = new Category();
+		currentCategory = new Section();
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringCategoryParsing;
 		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
@@ -108,7 +108,7 @@ public class ContentParser
 	protected void InitKeyIdParsing()
 	{
 		_parsingType = ParsingType.KeyId;
-		currentKey = new Key();
+		currentEntry = new();
 		ClearAllMyCallbacks();
 		parser.ValidTokenFound += ValidTokenFoundDuringKeyIdParsing;
 		parser.AllowedTokens = _parsingAllowedTokenLookup[_parsingType];
@@ -161,7 +161,7 @@ public class ContentParser
 				keyTmpValue += eventArgs.Symbol;
 				break;
 			case TokenType.ValueMarker:
-				if (!string.IsNullOrEmpty(currentKey?.Id))
+				if (!string.IsNullOrEmpty(currentEntry?.Name))
 				{
 					ValueParsingComplete(true);
 					InitKeyValueParsing();
@@ -208,7 +208,7 @@ public class ContentParser
 				InitCommentParsing(InitMainParsing);
 				break;
 			case TokenType.CategoryOpening:
-				currentCategory = new Category();
+				currentCategory = new Section();
 				InitCategoryParsing();
 				break;
 			default:
@@ -225,7 +225,7 @@ public class ContentParser
 				InitKeyIdParsing();
 				break;
 			case TokenType.LineConcatenator:
-				if (this.parser.Position == (this.parser.Length - 1))
+				if (parser.Position == (parser.Length - 1))
 				{
 					throw new InvalidTokenException(@"'\' are not allowed as the last token in a Category");
 				}
@@ -265,7 +265,7 @@ public class ContentParser
 				break;
 			case TokenType.Equality:
 				// multiple EQ tokens in formula
-				if (!string.IsNullOrEmpty(currentKey?.Id))
+				if (!string.IsNullOrEmpty(currentEntry?.Name))
 				{
 					throw new InvalidTokenException("Equality tokenBase detected, but not expected.");
 				}
@@ -329,28 +329,18 @@ public class ContentParser
 		}
 	}
 
-	protected void InvalidTokenFound(object? sender, TokenEventArgs eventArgs)
-	{
-		var builder = new StringBuilder();
-		builder.AppendLine($"Invalid tokenBase found during {_parsingType} parsing: ");
-		builder.AppendLine($"Symbol: {eventArgs.Symbol}");
-		builder.AppendLine($"Token type: {eventArgs.TokenType}");
-		builder.AppendLine($"Allowed tokens: {string.Join(", ", parser.AllowedTokens.Select(t => $"{t}"))}");
-		builder.AppendLine($"Ignored tokens: {string.Join(", ", parser.IgnoredTokens.Select(t => $"{t}"))}");
-		throw new InvalidTokenException(builder.ToString());
-	}
-
 	protected void KeyParsingComplete()
 	{
-		if (currentKey != null && currentKey.KeyValues.Count != 0)
+		if (currentEntry is not null && currentEntry.Values.Count != 0)
 		{
 			if (currentCategory is null)
 			{
 				throw new InvalidOperationException("Current category is null when trying to add key to it.");
 			}
 
-			currentCategory.Keys.Add(currentKey);
-			currentKey = null;
+#warning refactor for entries without values (name only)
+			currentCategory.Entries.Add(new(Name: currentEntry.Name ?? currentEntry.Values.GetPrimitiveValue(), Values: currentEntry.Values));
+			currentEntry = null;
 		}
 	}
 
@@ -358,27 +348,18 @@ public class ContentParser
 	{
 		if (allowNull || !string.IsNullOrEmpty(keyTmpValue))
 		{
-			if (currentKey is null)
+			if (currentEntry is null)
 			{
 				throw new InvalidOperationException("Current key is null when trying to add value to it.");
 			}
 
-			KeyValue keyValue;
-			if (!pure)
+			EntryValue entryValue = pure switch
 			{
-				keyValue = new KeyValue
-				{
-					Value = keyTmpValue
-				};
-			}
-			else
-			{
-				keyValue = new PureValue
-				{
-					Value = keyTmpValue
-				};
-			}
-			currentKey.KeyValues.Add(keyValue);
+				false => new EntryValue { Value = keyTmpValue },
+				true => new PureValue { Value = keyTmpValue },
+			};
+
+			currentEntry.Values.Add(entryValue);
 			keyTmpValue = null;
 		}
 	}
@@ -394,30 +375,31 @@ public class ContentParser
 
 	protected void SerializeCurrentTmpValueAsAnonymousKey()
 	{
-		if (currentKey is null)
+		if (currentEntry is null)
 		{
 			throw new InvalidOperationException("Current key is null when trying to add anonymous key.");
 		}
 
 		//TODO Implement this
-		var keyValue = new KeyValue
+		var entryValue = new EntryValue
 		{
 			Value = keyTmpValue
 		};
-		currentKey.KeyValues.Add(keyValue);
+
+		currentEntry.Values.Add(entryValue);
 		keyTmpValue = null;
 	}
 
 	protected void KeyIdParsingCompleted()
 	{
-		if (currentKey is null ||
+		if (currentEntry is null || 
 			keyTmpValue is null)
 		{
 			throw new InvalidOperationException("Current key or keyTmpValue is null when trying to complete key id parsing.");
 		}
 
 		// trim any leading or trailing whitespace
-		currentKey.Id = keyTmpValue.Trim();
+		currentEntry.Name = keyTmpValue.Trim();
 		keyTmpValue = null;
 	}
 

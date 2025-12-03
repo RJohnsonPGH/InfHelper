@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -21,30 +22,22 @@ public class InfHelperTests
 		var data = InfUtil.Parse(content);
 
 		// random key and key value
-		Assert.AreEqual("\"$WINDOWS NT$\"", data["Version"]["Signature"].PrimitiveValue);
+		Assert.AreEqual("\"$WINDOWS NT$\"", data["Version"]
+			.Where(x => string.Equals(x.Name, "Signature", StringComparison.OrdinalIgnoreCase))
+			.Single()
+			.Values
+			.GetPrimitiveValue());
 		// anonymous key
-		Assert.AreEqual("RazerCoinstaller.dll", data["Razer_CoInstaller_CopyFiles"].Keys.First().PrimitiveValue);
+		Assert.AreEqual("RazerCoinstaller.dll", data["Razer_CoInstaller_CopyFiles"]
+			.Entries[0]
+			.Values
+			.GetPrimitiveValue());
 
 		//anonymous key with multiple values
 		var values = new HashSet<string> { "HKR", null, "CoInstallers32", "0x00010000", "RazerCoinstaller.dll,RazerCoinstaller" };
-		Assert.IsTrue(data["Razer_CoInstaller_AddReg"].Keys.First().KeyValues.All(x => values.Contains(x.Value)));
+		Assert.IsTrue(data["Razer_CoInstaller_AddReg"].Entries.First().Values.All(x => values.Contains(x.Value)));
 
-		Assert.AreEqual(17, data.Categories.Count);
-	}
-
-	[TestMethod()] 
-	public void SecondLevelParseTest()
-	{
-		var content = File.ReadAllText(Path.Combine(testFolder, "oem100.inf"));
-		var data = InfUtil.Parse(content);
-		var result = InfUtil.SecondLevelParse(data);
-
-		// random key and key value
-		Assert.AreEqual("\"$WINDOWS NT$\"", result.Version["Signature"].PrimitiveValue);
-		Assert.AreEqual(1, result.Manufacturers.Count());
-		Assert.AreEqual(2, result.Manufacturers.First().Models.Count());
-		//Assert.AreEqual("\"Razer Inc\"", result.Strings["Razer"].PrimitiveValue);
-  //	  Assert.AreEqual(14, result.AllKeys.Count());
+		Assert.AreEqual(17, data.Sections.Count);
 	}
 
 	[TestMethod()]
@@ -54,13 +47,25 @@ public class InfHelperTests
 		var data = InfUtil.Parse(content);
 
 		// random key and key value
-		Assert.AreEqual("\"$WINDOWS NT$\"", data["vErSiOn"]["SIGnatURE"].PrimitiveValue);
+		Assert.AreEqual("\"$WINDOWS NT$\"", data["vErSiOn"]
+			.Where(x => string.Equals(x.Name, "SIGnatURE", System.StringComparison.OrdinalIgnoreCase))
+			.Single()
+			.Values
+			.GetPrimitiveValue());
 		// anonymous key
-		Assert.AreEqual("RazerCoinstaller.dll", data["RAzEr_CoInstaller_COpyFiles"].Keys.First().PrimitiveValue);
+		Assert.AreEqual("RazerCoinstaller.dll", data["RAzEr_CoInstaller_COpyFiles"]
+			.Entries
+			.First()
+			.Values
+			.GetPrimitiveValue());
 
 		//anonymous key with multiple values
 		var values = new HashSet<string> { "HKR", null, "CoInstallers32", "0x00010000", "RazerCoinstaller.dll,RazerCoinstaller" };
-		Assert.IsTrue(data["Razer_CoInstaller_AddReg"].Keys.First().KeyValues.All(x => values.Contains(x.Value)));
+		Assert.IsTrue(data["Razer_CoInstaller_AddReg"]
+			.Entries
+			.First()
+			.Values
+			.All(x => values.Contains(x.Value)));
 	}
 
 	[TestMethod()]
@@ -89,10 +94,26 @@ public class InfHelperTests
 			"Razer_Installer_CopyFilesWOW64 = 16426,\"Razer\\RzWizardPkg\"\r\n" +
 			"Razer_Installer_CopyFilesWithBrackets = 16428,\"Razer\\RzWizardPkg ; [Brackets=X]\"";
 		var data = InfUtil.Parse(formula);
-		Assert.AreEqual("11", data["DestinationDirs"]["Razer_CoInstaller_CopyFiles"].PrimitiveValue);
-		Assert.AreEqual("16422, \"Razer\\RzWizardPkg\"", data["DestinationDirs"]["Razer_Installer_CopyFiles"].PrimitiveValue);
-		Assert.AreEqual("16426, \"Razer\\RzWizardPkg\"", data["DestinationDirs"]["Razer_Installer_CopyFilesWOW64"].PrimitiveValue);
-		Assert.AreEqual("16428, \"Razer\\RzWizardPkg ; [Brackets=X]\"", data["DestinationDirs"]["Razer_Installer_CopyFilesWithBrackets"].PrimitiveValue);
+		Assert.AreEqual("11", data["DestinationDirs"]
+			.Where(x => string.Equals(x.Name, "Razer_CoInstaller_CopyFiles", StringComparison.OrdinalIgnoreCase))
+			.Single()
+			.Values
+			.GetPrimitiveValue());
+		Assert.AreEqual("16422, \"Razer\\RzWizardPkg\"", data["DestinationDirs"]
+			.Where(x => string.Equals(x.Name, "Razer_Installer_CopyFiles", StringComparison.OrdinalIgnoreCase))
+			.Single()
+			.Values
+			.GetPrimitiveValue());
+		Assert.AreEqual("16426, \"Razer\\RzWizardPkg\"", data["DestinationDirs"]
+			.Where(x => string.Equals(x.Name, "Razer_Installer_CopyFilesWOW64", StringComparison.OrdinalIgnoreCase))
+			.Single()
+			.Values
+			.GetPrimitiveValue());
+		Assert.AreEqual("16428, \"Razer\\RzWizardPkg ; [Brackets=X]\"", data["DestinationDirs"]
+			.Where(x => string.Equals(x.Name, "Razer_Installer_CopyFilesWithBrackets", StringComparison.OrdinalIgnoreCase))
+			.Single()
+			.Values
+			.GetPrimitiveValue());
 	}
 
 	[TestMethod()]
@@ -101,7 +122,12 @@ public class InfHelperTests
 		string formula =
 			"[AzaliaManufacturerID.NTamd64.10.0...15063]\r\n\"Realtek High Definition Audio\" = IntcAzAudModel, HDAUDIO\\FUNC_01&VEN_10EC&DEV_0257&SUBSYS_17AA39F5 ; ThinkBook 16p NX ARH\r\n";
 		var data = InfUtil.Parse(formula);
-		Assert.AreEqual("IntcAzAudModel, HDAUDIO\\FUNC_01&VEN_10EC&DEV_0257&SUBSYS_17AA39F5", data["AzaliaManufacturerID.NTamd64.10.0...15063"]["Realtek High Definition Audio"].PrimitiveValue);
+		Assert.AreEqual("IntcAzAudModel, HDAUDIO\\FUNC_01&VEN_10EC&DEV_0257&SUBSYS_17AA39F5", 
+			data["AzaliaManufacturerID.NTamd64.10.0...15063"]
+			.Where(x => string.Equals(x.Name, "Realtek High Definition Audio", StringComparison.OrdinalIgnoreCase))
+			.Single()
+			.Values
+			.GetPrimitiveValue());
 	}
 
 	[TestMethod()]
@@ -110,7 +136,10 @@ public class InfHelperTests
 		string formula =
 			"[DestinationDirs]\r\nRazer_CoInstaller_CopyFiles = 11 ; Comment\r\nRazer_Installer_CopyFiles = 16422,\"Razer\\RzWizardPkg\"\r\nRazer_Installer_CopyFilesWOW64 = 16426,\"Razer\\RzWizardPkg\"";
 		var data = InfUtil.Parse(formula);
-		Assert.AreEqual("11", data.FindKeyById("Razer_CoInstaller_CopyFiles").First().PrimitiveValue);
+		Assert.AreEqual("11", data
+			.FindEntryById("Razer_CoInstaller_CopyFiles")
+			.Values
+			.GetPrimitiveValue());
 	}
 
 	[TestMethod()]
@@ -159,7 +188,7 @@ public class InfHelperTests
 		var info = InfUtil.ParseFile(Path.Combine(testFolder, "spaces.inf"));
 		
 		// info.Categories should contain [OEM URLS]
-		Assert.IsTrue(info.Categories.Count(x => x.Name == "OEM URLS") == 1);
+		Assert.AreEqual(1, info.Sections.Count(x => x.Name == "OEM URLS"));
 	}
 
 	[TestMethod()]
@@ -167,11 +196,19 @@ public class InfHelperTests
 	{
 		var data = InfUtil.ParseFile(Path.Combine(testFolder, "oem137.inf"));
 
-		var strings = data.Categories.FirstOrDefault(c => c.Name == "Strings");
+		var strings = data.Sections.FirstOrDefault(c => c.Name == "Strings");
 
-		Assert.AreEqual("\"{DFF21BE1-F70F-11D0-B917-00A0C9223196}\"", strings.Keys.Where(k => k.Id == "KSNODETYPE_MICROPHONE").First().PrimitiveValue);
+		Assert.AreEqual("\"{DFF21BE1-F70F-11D0-B917-00A0C9223196}\"", strings.Entries
+			.Where(k => k.Name == "KSNODETYPE_MICROPHONE")
+			.First()
+			.Values
+			.GetPrimitiveValue());
 
-		Assert.AreEqual("\"{17CCA71B-ECD7-11D0-B908-00A0C9223196}\"", strings.Keys.Where(k => k.Id == "Proxy.CLSID").First().PrimitiveValue);
+		Assert.AreEqual("\"{17CCA71B-ECD7-11D0-B908-00A0C9223196}\"", strings.Entries
+			.Where(k => k.Name == "Proxy.CLSID")
+			.First()
+			.Values
+			.GetPrimitiveValue());
 	}
 
 	[TestMethod()]
@@ -179,9 +216,9 @@ public class InfHelperTests
 	{
 		var info = InfUtil.ParseFile(Path.Combine(testFolder, "oem136.inf"));
 
-		var sourceDisksSection = info.Categories.FirstOrDefault(c => c.Name == "SourceDisksNames");
+		var sourceDisksSection = info.Sections.FirstOrDefault(c => c.Name == "SourceDisksNames");
 
-		Assert.IsTrue(sourceDisksSection.Keys.First().KeyValues.Count == 4);
-		Assert.IsTrue(sourceDisksSection.Keys.First().KeyValues.Last().Value == "\\");
+		Assert.AreEqual(4, sourceDisksSection.Entries.First().Values.Count);
+		Assert.AreEqual("\\", sourceDisksSection.Entries.First().Values.Last().Value);
 	}
 }
