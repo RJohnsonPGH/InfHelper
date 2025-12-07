@@ -8,12 +8,12 @@ public class InfSectionCollection : Dictionary<string, InfSectionExtCollection>
 	public InfSectionCollection() : base(StringComparer.OrdinalIgnoreCase) { }
 }
 
-public class InfSectionExtCollection : Dictionary<string, InfSectionExtEntryCollection>
+public class InfSectionExtCollection : Dictionary<string, InfSectionEntryCollection>
 {
 	public InfSectionExtCollection() : base(StringComparer.OrdinalIgnoreCase) { }
 }
 
-public class InfSectionExtEntryCollection : Dictionary<string, Entry>
+public class InfSectionEntryCollection : Dictionary<string, Entry>
 {
-	public InfSectionExtEntryCollection() : base(StringComparer.OrdinalIgnoreCase) { }
+	public InfSectionEntryCollection() : base(StringComparer.OrdinalIgnoreCase) { }
 }

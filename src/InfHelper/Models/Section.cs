@@ -21,15 +21,6 @@ public class Section : IEnumerable<Entry>
 	/// <returns></returns>
 	public bool IsNamed(string name) => string.Compare(Name, name, StringComparison.OrdinalIgnoreCase) == 0;
 
-	public bool IsBaseSection(string name) => string.Compare(Name.Split('.')[0], name, StringComparison.OrdinalIgnoreCase) == 0;
-
-	public Entry this[int index]
-	{
-		get => Entries[index];
-		set => Entries[index] = value;
-	}
-
 	public IEnumerator<Entry> GetEnumerator() => _entries.GetEnumerator();
-
 	IEnumerator IEnumerable.GetEnumerator() => _entries.GetEnumerator();
 }

@@ -1,19 +1,42 @@
 ﻿using InfHelper.Exceptions;
 using InfHelper.Models.Sections;
-using System;
+using InfHelper.Models.Sections.Entries;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace InfHelper.Models;
 
+/// <summary>
+/// Represents a strongly typed view of parsed INF file data, providing access to key sections such as version
+/// information, manufacturers, strings, and section keys.
+/// </summary>
+/// <remarks>This record is must be constructed by using the <see cref="Parse"/> method. It
+/// exposes commonly used sections in a type-safe manner, allowing consumers to access and process INF file contents
+/// without manual parsing.</remarks>
 public sealed record TypedInfData
 {
-	public required InfVersion Version { get; init; }
-	public required InfRootSection<InfManufacturer> Manufacturers { get; init; }
-	//public required InfSourceDiskNames SourceDiskNames { get; init; }
-	//public required InfSourceDiskFiles SourceDiskFiles { get; init; }
-	public required InfLeafSection<InfStrings> Strings { get; init; }
-	public required IEnumerable<Section> Keys { get; init; }
+	private TypedInfData(
+		InfVersion version, 
+		InfSection<InfManufacturerEntry> manufacturers,
+		IEnumerable<InfEntry> sourceDiskNames,
+		IEnumerable<InfEntry> sourceDiskFiles,
+		IEnumerable<InfEntry> strings,
+		IEnumerable<Section> allSections)
+	{
+		Version = version;
+		Manufacturers = manufacturers;
+		SourceDiskNames = sourceDiskNames;
+		SourceDiskFiles = sourceDiskFiles;
+		Strings = strings;
+		AllSections = allSections;
+	}
+
+	public InfVersion Version { get; init; }
+	public InfSection<InfManufacturerEntry> Manufacturers { get; init; }
+	public IEnumerable<InfEntry> SourceDiskNames { get; init; }
+	public IEnumerable<InfEntry> SourceDiskFiles { get; init; }
+	public IEnumerable<InfEntry> Strings { get; init; }
+	public IEnumerable<Section> AllSections { get; init; }
 
 	public static TypedInfData Parse(InfData data)
 	{
@@ -21,20 +44,16 @@ public sealed record TypedInfData
 		var sections = CreateSectionCollection(data);
 
 		// Version is special, so we parse the individual entries using ParseRootSection, then assemble the final object
-		var version = InfVersion.Parse(ParseRootSection<InfVersionEntry>(sections, "Version"));
-		var manufacturer = ParseRootSection<InfManufacturer>(sections, "Manufacturer");
-		//var sourceDiskNames = ParseTopLevelSection<InfSourceDiskNames>(sections);
-		//var sourceDiskFiles = ParseTopLevelSection<InfSourceDiskFiles>(sections);
-		var strings = ParseLeafSection<InfStrings>(sections, "Strings");
-		return new()
-		{
-			Version = version,
-			Manufacturers = manufacturer,
-			//SourceDiskNames = sourceDiskNames,
-			//SourceDiskFiles = sourceDiskFiles,
-			Strings = strings,
-			Keys = data.Sections
-		};
+		//var version = InfVersion.Parse(GetSection<InfVersionEntry>(sections, "Version"));
+		var manufacturers = GetSection<InfManufacturerEntry>(sections, "Manufacturer");
+		var sourceDiskNames = GetRootSection<InfEntry>(sections, "SourceDisksNames")
+			.SelectMany(x => x);
+		var sourceDiskFiles = GetRootSection<InfEntry>(sections, "SourceDisksFiles")
+			.SelectMany(x => x);
+		var strings = GetRootSection<InfEntry>(sections, "Strings")
+			.SelectMany(x => x);
+
+		return new(null!, manufacturers, sourceDiskNames, sourceDiskFiles, strings, data.Sections);
 	}
 
 	/// <summary>
@@ -55,8 +74,8 @@ public sealed record TypedInfData
 		{
 			// Split the section name
 			int index = section.Name.IndexOf('.');
-			var sectionName = index < 0 ? section.Name : section.Name[..index];
-			var sectionNameExtension = index < 0 ? string.Empty : section.Name[(index + 1)..];
+			var sectionName = index < 0 ? section.Name : section.Name[..index]; // If there is no '.', use the entire section name
+			var sectionNameExtension = index < 0 ? string.Empty : section.Name[(index + 1)..]; // If there is no '.', use an empty string as the extension
 
 			// The section does not yet exist in the dictionary, so add it
 			if (!sections.TryGetValue(sectionName, out var sectionExtensions))
@@ -81,49 +100,81 @@ public sealed record TypedInfData
 		return sections;
 	}
 
+	/// <summary>
+	/// Generates a sequence of extended section names based on the provided entry values.
+	/// </summary>
+	/// <remarks>The first entry value is used as the base section name. Each subsequent section name is constructed
+	/// by concatenating the base section name with the value of each additional entry, separated by a period.</remarks>
+	/// <param name="entryValues">A collection of <see cref="EntryValue"/> objects representing the base and additional values used to construct
+	/// section names.</param>
+	/// <returns>An enumerable collection of strings containing the base section name followed by extended section names formed by
+	/// combining the base with each additional entry value.</returns>
 	internal static IEnumerable<string> GetExtendedSections(IEnumerable<EntryValue> entryValues)
 	{
-		if (entryValues.Any(x => x.IsDynamic))
-		{
-			throw new InvalidOperationException("Cannot generate decorated section names for dynamic key values.");
-		}
+		// The first entry value is the base section name
+		var sectionName = entryValues.First();
 
-		var baseSectionName = entryValues.First();
-		yield return baseSectionName.Value;
+		// Example input of a Manufacturer: 'DriverName,NTAMD64'
+		// The valid section names from this are ['DriverName', 'DriverName.NTAMD64']
+		// So we yield the base section name first
+		yield return sectionName.Value;
 
-		foreach (var dectoratedSection in entryValues.Skip(1))
+		// Then yield each extended section name
+		foreach (var extendedSectionSuffix in entryValues.Skip(1))
 		{
-			yield return $"{baseSectionName.Value}.{dectoratedSection.Value}";
+			yield return $"{sectionName.Value}.{extendedSectionSuffix.Value}";
 		}
 	}
 
-	internal static InfLeafSection<T> ParseLeafSection<T>(InfSectionCollection allSections, string sectionName) where T : IInfLeaf<T>
+	/// <summary>
+	/// Retrieves a strongly typed section from the specified collection by name. Throws an exception if the section or its
+	/// extension is not found.
+	/// </summary>
+	/// <typeparam name="T">The type of section to retrieve. Must implement <see cref="IInfSection{T}"/>.</typeparam>
+	/// <param name="allSections">The collection containing all available sections from which to retrieve the specified section.</param>
+	/// <param name="sectionName">The name of the section to retrieve. May include an extension separated by a period ('.').</param>
+	/// <returns>An <see cref="InfSection{T}"/> representing the requested section and its extension.</returns>
+	/// <exception cref="RequiredSectionMissingException">Thrown if the specified section or its extension does not exist in the collection.</exception>
+	internal static InfSection<T> GetSection<T>(InfSectionCollection allSections, string sectionName) where T : IInfSection<T>
 	{
-		if (!allSections.TryGetValue(sectionName, out var section))
-		{
-			throw new RequiredSectionMissingException(sectionName);
-		}
+		// Split the section name
+		int index = sectionName.IndexOf('.');
 
-		return new(sectionName, allSections, section);
-	}
+		// Create an array with the section name and extension
+		string[] splitSectionName = [
+			index < 0 ? sectionName : sectionName[..index], // If there is no '.', use the entire section name
+			index < 0 ? string.Empty : sectionName[(index + 1)..] // If there is no '.', use an empty string as the extension
+		];
 
-	internal static InfBranchSection<T> ParseBranchSection<T>(InfSectionCollection allSections, string sectionName) where T : IInfBranch<T>
-	{
-		if (!allSections.TryGetValue(sectionName, out var section))
+		// Try to get the section and extension from the collection
+		if (!allSections.TryGetValue(splitSectionName[0], out var section) ||
+			!section.TryGetValue(splitSectionName[1], out var extSection))
 		{
-			throw new RequiredSectionMissingException(sectionName);
-		}
-		return new(sectionName, allSections, section);
-	}
-
-	internal static InfRootSection<T> ParseRootSection<T>(InfSectionCollection allSections, string sectionName) where T : IInfRoot<T>
-	{
-		if (!allSections.TryGetValue(sectionName, out var section) ||
-			!section.TryGetValue(string.Empty, out var extSection))
-		{
-			throw new RequiredSectionMissingException(sectionName);
+			// The section or extension does not exist, so throw an exception
+			throw new RequiredSectionMissingException(splitSectionName[0], splitSectionName[1]);
 		}
 
 		return new(sectionName, allSections, extSection);
+	}
+
+	/// <summary>
+	/// Retrieves all sections with the specified name from the provided collection.
+	/// </summary>
+	/// <typeparam name="T">The type of section to retrieve. Must implement the IInfSection<T> interface.</typeparam>
+	/// <param name="allSections">The collection containing all available sections.</param>
+	/// <param name="sectionName">The name of the root section to retrieve. Cannot be null or empty.</param>
+	/// <returns>An enumerable collection of root sections of type InfSection<T> that match the specified name.</returns>
+	/// <exception cref="RequiredSectionMissingException">Thrown if a section with the specified name does not exist in the collection.</exception>
+	internal static IEnumerable<InfSection<T>> GetRootSection<T>(InfSectionCollection allSections, string sectionName) where T : IInfSection<T>
+	{
+		// Try to get the section and extension from the collection
+		if (!allSections.TryGetValue(sectionName, out var section))
+		{
+			// The section or extension does not exist, so throw an exception
+			throw new RequiredSectionMissingException(sectionName, string.Empty);
+		}
+
+		return section
+			.Select(extSection => new InfSection<T>(extSection.Key, allSections, extSection.Value));
 	}
 }

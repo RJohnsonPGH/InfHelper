@@ -1,13 +1,17 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace InfHelper.Models;
 
-public sealed record Entry(string Name, List<EntryValue> Values)
+public sealed record Entry(string Name, List<EntryValue> Values) : IEnumerable<EntryValue>
 {
-	public bool IsNamed(string name) =>
+    public bool IsNamed(string name) =>
 		string.Equals(Name, name, StringComparison.OrdinalIgnoreCase);
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+	public IEnumerator<EntryValue> GetEnumerator() => Values.GetEnumerator();
 
 	public override string ToString() => Values.GetPrimitiveValue();
 	public static implicit operator string(Entry entry) => entry.ToString();

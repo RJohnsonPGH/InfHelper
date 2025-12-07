@@ -4,52 +4,35 @@ using System.Linq;
 
 namespace InfHelper.Models.Sections;
 
-public sealed record InfLeafSection<T> : IEnumerable<T> where T : IInfLeaf<T>
+/// <summary>
+/// Represents a strongly-typed section within an INF file, providing access to its entries as a sequence of elements of
+/// type T.
+/// </summary>
+/// <remarks>Use this type to enumerate the entries of a specific INF section. The section name is available via
+/// the <see cref="Name"/> property.</remarks>
+/// <typeparam name="T">The type of section entry, which must implement <see cref="IInfSection{T}"/>.</typeparam>
+public sealed record InfSection<T> : IEnumerable<T> where T : IInfSection<T>
 {
-	internal InfLeafSection(string name, InfSectionCollection allSections, InfSectionExtCollection section)
+	/// <summary>
+	/// Initializes a new instance of the InfSection class with the specified section name, collection of all sections, and
+	/// entry collection.
+	/// </summary>
+	/// <param name="name">The name of the section to be represented by this instance. Cannot be null.</param>
+	/// <param name="allSections">A collection containing all sections available for reference. Cannot be null.</param>
+	/// <param name="entries">A collection of entries associated with this section. Cannot be null.</param>
+	internal InfSection(string name, InfSectionCollection allSections, InfSectionEntryCollection entries)
 	{
-		_name = name;
-		_leafs = section
-			.SelectMany(extension => extension.Value
-				.Select(entry => T.Create(entry.Key, extension.Key, entry.Value)));
-	}
-
-	public string Name => _name;
-	private readonly string _name;
-
-	private readonly IEnumerable<T> _leafs;
-	public IEnumerator<T> GetEnumerator() => _leafs.GetEnumerator();
-	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-}
-
-public sealed record InfBranchSection<T> : IEnumerable<T> where T : IInfBranch<T>
-{
-	internal InfBranchSection(string name, InfSectionCollection allSections, InfSectionExtCollection entries)
-	{
-		_name = name;
+		Name = name;
 		_branches = entries
-			.SelectMany(extension => extension.Value
-				.Select(entry => T.Create(entry.Key, extension.Key, entry.Value, allSections)));
-	}
-	public string Name => _name;
-	private readonly string _name;
-	private readonly IEnumerable<T> _branches;
-	public IEnumerator<T> GetEnumerator() => _branches.GetEnumerator();
-	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-}
-
-public sealed record InfRootSection<T> : IEnumerable<T> where T : IInfRoot<T>
-{
-	internal InfRootSection(string name, InfSectionCollection allSections, InfSectionExtEntryCollection entries)
-	{
-		_name = name;
-		_branches = entries
-				.Select(entry => T.Create(entry.Key, entry.Value, allSections));
+				.Select(entry => T.Create(name, entry.Value, allSections));
 	}
 
-	public string Name => _name;
-	private readonly string _name;
+	/// <summary>
+	/// Gets the name of this section.
+	/// </summary>
+	public string Name { get; init; }
 
+	// IEnumerable implementation - allows for iteration over the contained T entries
 	private readonly IEnumerable<T> _branches;
 	public IEnumerator<T> GetEnumerator() => _branches.GetEnumerator();
 	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();

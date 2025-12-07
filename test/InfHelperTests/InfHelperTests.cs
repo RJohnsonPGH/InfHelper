@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using InfHelper;
 using InfHelper.Models;
-using InfHelperTests.ModelsForTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace InfHelperTests;
@@ -19,7 +18,7 @@ public class InfHelperTests
 	public void ParseTest()
 	{
 		var content = File.ReadAllText(Path.Combine(testFolder, "oem100.inf"));
-		var data = InfUtil.Parse(content);
+		var data = InfUtil.BasicParse(content);
 
 		// random key and key value
 		Assert.AreEqual("\"$WINDOWS NT$\"", data["Version"]
@@ -44,7 +43,7 @@ public class InfHelperTests
 	public void ParseCaseInsensitiveTest()
 	{
 		var content = File.ReadAllText(Path.Combine(testFolder, "oem100.inf"));
-		var data = InfUtil.Parse(content);
+		var data = InfUtil.BasicParse(content);
 
 		// random key and key value
 		Assert.AreEqual("\"$WINDOWS NT$\"", data["vErSiOn"]
@@ -78,7 +77,7 @@ public class InfHelperTests
 			sw.Reset();
 			Trace.WriteLine("Parsing file: " + file);
 			sw.Start();
-			InfUtil.ParseFile(file);
+			InfUtil.BasicParseFile(file);
 			sw.Stop();
 			Trace.WriteLine($"Completed. Elapsed time: {sw.Elapsed}");
 		}
@@ -93,7 +92,7 @@ public class InfHelperTests
 			"Razer_Installer_CopyFiles = 16422,\"Razer\\RzWizardPkg\"\r\n" +
 			"Razer_Installer_CopyFilesWOW64 = 16426,\"Razer\\RzWizardPkg\"\r\n" +
 			"Razer_Installer_CopyFilesWithBrackets = 16428,\"Razer\\RzWizardPkg ; [Brackets=X]\"";
-		var data = InfUtil.Parse(formula);
+		var data = InfUtil.BasicParse(formula);
 		Assert.AreEqual("11", data["DestinationDirs"]
 			.Where(x => string.Equals(x.Name, "Razer_CoInstaller_CopyFiles", StringComparison.OrdinalIgnoreCase))
 			.Single()
@@ -121,7 +120,7 @@ public class InfHelperTests
 	{
 		string formula =
 			"[AzaliaManufacturerID.NTamd64.10.0...15063]\r\n\"Realtek High Definition Audio\" = IntcAzAudModel, HDAUDIO\\FUNC_01&VEN_10EC&DEV_0257&SUBSYS_17AA39F5 ; ThinkBook 16p NX ARH\r\n";
-		var data = InfUtil.Parse(formula);
+		var data = InfUtil.BasicParse(formula);
 		Assert.AreEqual("IntcAzAudModel, HDAUDIO\\FUNC_01&VEN_10EC&DEV_0257&SUBSYS_17AA39F5", 
 			data["AzaliaManufacturerID.NTamd64.10.0...15063"]
 			.Where(x => string.Equals(x.Name, "Realtek High Definition Audio", StringComparison.OrdinalIgnoreCase))
@@ -135,57 +134,17 @@ public class InfHelperTests
 	{
 		string formula =
 			"[DestinationDirs]\r\nRazer_CoInstaller_CopyFiles = 11 ; Comment\r\nRazer_Installer_CopyFiles = 16422,\"Razer\\RzWizardPkg\"\r\nRazer_Installer_CopyFilesWOW64 = 16426,\"Razer\\RzWizardPkg\"";
-		var data = InfUtil.Parse(formula);
+		var data = InfUtil.BasicParse(formula);
 		Assert.AreEqual("11", data
 			.FindEntryById("Razer_CoInstaller_CopyFiles")
 			.Values
 			.GetPrimitiveValue());
 	}
-
-	[TestMethod()]
-	public void CustomSerializationTest()
-	{
-		var serilized = InfUtil.SerializeFileInto<DriverInfo>(Path.Combine(testFolder, "oem100.inf"), out InfData _);
-		Assert.AreEqual("HIDClass",serilized.Class);
-		Assert.AreEqual("%Razer%",serilized.Provider);
-		Assert.AreEqual("\"Razer Installer\"", serilized.DiskId1);
-	}
-
-	[TestMethod()]
-	public void CustomSerializationTest2()
-	{
-		// Throw is expected as the Deserialization type has a key that does not exist in the INF
-		Assert.ThrowsException<KeyNotFoundException>(() =>
-		{
-			InfUtil.SerializeFileInto<DriverInfo>(Path.Combine(testFolder, "oem147.inf"), out InfData _);
-		});
-		
-		//Assert.AreEqual("net", serilized.Class);
-		//Assert.AreEqual("%PROVIDER_NAME%", serilized.Provider);
-	}
-
-	[TestMethod()]
-	public void CustomSerializationDereferenceTest()
-	{
-		var serilized = InfUtil.SerializeFileInto<DriverInfoDereferenced>(Path.Combine(testFolder, "oem100.inf"), out InfData _);
-		Assert.AreEqual("HIDClass", serilized.Class);
-		Assert.AreEqual("Razer Inc", serilized.Provider);
-	}
-
-	[TestMethod()]
-	public void CustomSerializationHugeDereferenceTest()
-	{
-		foreach (var file in Directory.GetFiles(testFolder))
-		{
-			var serilized = InfUtil.SerializeFileInto<DriverInfoDereferenced>(file, out InfData _);
-			Assert.IsNotNull(serilized.Provider);
-		}
-	}
 	
 	[TestMethod()]
 	public void CanParseSpacesInCategoryName()
 	{
-		var info = InfUtil.ParseFile(Path.Combine(testFolder, "spaces.inf"));
+		var info = InfUtil.BasicParseFile(Path.Combine(testFolder, "spaces.inf"));
 		
 		// info.Categories should contain [OEM URLS]
 		Assert.AreEqual(1, info.Sections.Count(x => x.Name == "OEM URLS"));
@@ -194,7 +153,7 @@ public class InfHelperTests
 	[TestMethod()]
 	public void AssumeNewLinesEndQuote()
 	{
-		var data = InfUtil.ParseFile(Path.Combine(testFolder, "oem137.inf"));
+		var data = InfUtil.BasicParseFile(Path.Combine(testFolder, "oem137.inf"));
 
 		var strings = data.Sections.FirstOrDefault(c => c.Name == "Strings");
 
@@ -214,7 +173,7 @@ public class InfHelperTests
 	[TestMethod()]
 	public void EmptySeparatorsAreNull()
 	{
-		var info = InfUtil.ParseFile(Path.Combine(testFolder, "oem136.inf"));
+		var info = InfUtil.BasicParseFile(Path.Combine(testFolder, "oem136.inf"));
 
 		var sourceDisksSection = info.Sections.FirstOrDefault(c => c.Name == "SourceDisksNames");
 
