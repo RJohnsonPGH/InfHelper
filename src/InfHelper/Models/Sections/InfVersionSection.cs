@@ -2,12 +2,13 @@
 using InfHelper.Models.Sections.Entries;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace InfHelper.Models.Sections;
 
-public sealed record InfVersion
+public sealed record InfVersionSection
 {
-	private InfVersion(string signature, string classType, Guid classGuid, string provider, InfDriverVer driverVer)
+	private InfVersionSection(string signature, string classType, Guid classGuid, string provider, InfDriverVer driverVer)
 	{
 		Signature = signature;
 		Class = classType;
@@ -22,18 +23,13 @@ public sealed record InfVersion
 	public string Provider { get; }
 	public InfDriverVer DriverVer { get; }
 
-	//public static InfVersion Parse(IEnumerable<InfVersionEntry> entries)
+	//public static InfVersionSection Parse(Dictionary<string, InfEntry> entries)
 	//{
-	//	var entryDictionary = entries.ToDictionary(
-	//		entry => entry.Name, 
-	//		entry => entry,
-	//		StringComparer.OrdinalIgnoreCase);
-
-	//	var signature = GetRequiredEntry(entryDictionary, "Signature").Values;
-	//	var classType = GetRequiredEntry(entryDictionary, "Class");
-	//	var guid = GetRequiredEntry(entryDictionary, "ClassGUID");
-	//	var provider = GetRequiredEntry(entryDictionary, "Provider");
-	//	var driverVer = InfDriverVer.Parse(GetRequiredEntry(entryDictionary, "DriverVer"));
+	//	var signature = GetRequiredEntry(entries, "Signature").Values;
+	//	var classType = GetRequiredEntry(entries, "Class");
+	//	var guid = GetRequiredEntry(entries, "ClassGUID");
+	//	var provider = GetRequiredEntry(entries, "Provider");
+	//	var driverVer = InfDriverVer.Parse(GetRequiredEntry(entries, "DriverVer"));
 	//	if (!Guid.TryParse(guid, out var classGuid))
 	//	{
 	//		throw new RequiredEntryMalformedException("Version", "ClassGUID", guid);
@@ -43,7 +39,7 @@ public sealed record InfVersion
 	//	return new(signature, classType, classGuid, provider, driverVer);
 	//}
 
-	private static InfVersionEntry GetRequiredEntry(Dictionary<string, InfVersionEntry> dictionary, string key)
+	private static InfEntry GetRequiredEntry(Dictionary<string, InfEntry> dictionary, string key)
 	{
 		if (!dictionary.TryGetValue(key, out var entry))
 		{

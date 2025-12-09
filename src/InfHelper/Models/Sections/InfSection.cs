@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace InfHelper.Models.Sections;
@@ -11,7 +12,7 @@ namespace InfHelper.Models.Sections;
 /// <remarks>Use this type to enumerate the entries of a specific INF section. The section name is available via
 /// the <see cref="Name"/> property.</remarks>
 /// <typeparam name="T">The type of section entry, which must implement <see cref="IInfSection{T}"/>.</typeparam>
-public sealed record InfSection<T> : IEnumerable<T> where T : IInfSection<T>
+public sealed record InfSection<T> : IReadOnlyDictionary<string, T> where T : IInfSection<T>
 {
 	/// <summary>
 	/// Initializes a new instance of the InfSection class with the specified section name, collection of all sections, and
@@ -23,17 +24,42 @@ public sealed record InfSection<T> : IEnumerable<T> where T : IInfSection<T>
 	internal InfSection(string name, InfSectionCollection allSections, InfSectionEntryCollection entries)
 	{
 		Name = name;
-		_branches = entries
-				.Select(entry => T.Create(name, entry.Value, allSections));
+		_entryDictionary = entries
+			.ToDictionary(entry => entry.Key, entry => T.Create(name, entry.Value, allSections));
 	}
+
+	private readonly Dictionary<string, T> _entryDictionary;
 
 	/// <summary>
 	/// Gets the name of this section.
 	/// </summary>
 	public string Name { get; init; }
 
-	// IEnumerable implementation - allows for iteration over the contained T entries
-	private readonly IEnumerable<T> _branches;
-	public IEnumerator<T> GetEnumerator() => _branches.GetEnumerator();
-	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    public IEnumerable<string> Keys => ((IReadOnlyDictionary<string, T>)_entryDictionary).Keys;
+
+    public IEnumerable<T> Values => ((IReadOnlyDictionary<string, T>)_entryDictionary).Values;
+
+    public int Count => ((IReadOnlyCollection<KeyValuePair<string, T>>)_entryDictionary).Count;
+
+    public T this[string key] => ((IReadOnlyDictionary<string, T>)_entryDictionary)[key];
+
+    public bool ContainsKey(string key)
+    {
+        return ((IReadOnlyDictionary<string, T>)_entryDictionary).ContainsKey(key);
+    }
+
+    public bool TryGetValue(string key, [MaybeNullWhen(false)] out T value)
+    {
+        return ((IReadOnlyDictionary<string, T>)_entryDictionary).TryGetValue(key, out value);
+    }
+
+    public IEnumerator<KeyValuePair<string, T>> GetEnumerator()
+    {
+        return ((IEnumerable<KeyValuePair<string, T>>)_entryDictionary).GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return ((IEnumerable)_entryDictionary).GetEnumerator();
+    }
 }

@@ -16,7 +16,7 @@ namespace InfHelper.Models;
 public sealed record TypedInfData
 {
 	private TypedInfData(
-		InfVersion version, 
+		IEnumerable<InfEntry> version, 
 		InfSection<InfManufacturerEntry> manufacturers,
 		IEnumerable<InfEntry> sourceDiskNames,
 		IEnumerable<InfEntry> sourceDiskFiles,
@@ -31,7 +31,7 @@ public sealed record TypedInfData
 		AllSections = allSections;
 	}
 
-	public InfVersion Version { get; init; }
+	public IEnumerable<InfEntry> Version { get; init; }
 	public InfSection<InfManufacturerEntry> Manufacturers { get; init; }
 	public IEnumerable<InfEntry> SourceDiskNames { get; init; }
 	public IEnumerable<InfEntry> SourceDiskFiles { get; init; }
@@ -43,15 +43,14 @@ public sealed record TypedInfData
 		// Merge duplicate data sections before parsing, and convert to a dictionary for faster lookups
 		var sections = CreateSectionCollection(data);
 
-		// Version is special, so we parse the individual entries using ParseRootSection, then assemble the final object
-		//var version = InfVersion.Parse(GetSection<InfVersionEntry>(sections, "Version"));
+		var version = GetSection<InfEntry>(sections, "Version");
 		var manufacturers = GetSection<InfManufacturerEntry>(sections, "Manufacturer");
 		var sourceDiskNames = GetRootSection<InfEntry>(sections, "SourceDisksNames")
-			.SelectMany(x => x);
+			.SelectMany(x => x.Values);
 		var sourceDiskFiles = GetRootSection<InfEntry>(sections, "SourceDisksFiles")
-			.SelectMany(x => x);
+			.SelectMany(x => x.Values);
 		var strings = GetRootSection<InfEntry>(sections, "Strings")
-			.SelectMany(x => x);
+			.SelectMany(x => x.Values);
 
 		return new(null!, manufacturers, sourceDiskNames, sourceDiskFiles, strings, data.Sections);
 	}

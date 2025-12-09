@@ -20,7 +20,8 @@ public sealed record InfManufacturerEntry : InfEntry, IInfSection<InfManufacture
 	{
 		_models = new(TypedInfData.GetExtendedSections(entry)
 			.SelectMany(sectionName =>
-				TypedInfData.GetSection<InfModelEntry>(allSections, sectionName)));
+				TypedInfData.GetSection<InfModelEntry>(allSections, sectionName)
+					.Select(modelSection => modelSection.Value)));
 	}
 
 	public IEnumerable<InfModelEntry> Models => _models.Value;

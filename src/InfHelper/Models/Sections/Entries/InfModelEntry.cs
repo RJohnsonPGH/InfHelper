@@ -36,7 +36,7 @@ public sealed record InfModelEntry : InfEntry, IInfSection<InfModelEntry>
 	// Each model must have exactly one install section - this should never fail
 	// Validation to ensure that at least one section eixsts occurs in the GetSection method and duplicate
 	// Section names are merged prior to this point
-	public InfInstallEntry Install => _install.Value.Single(); 
+	public InfInstallEntry Install => _install.Value.First().Value;
 	private readonly Lazy<InfSection<InfInstallEntry>> _install;
 	public IEnumerable<string> DeviceIds { get; }
 
